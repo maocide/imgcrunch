@@ -20,8 +20,8 @@ class ImageController extends ChangeNotifier {
 
   String? get currentPath =>
       hasImages && _currentIndex >= 0 && _currentIndex < _playlist.length
-          ? _playlist[_currentIndex]
-          : null;
+      ? _playlist[_currentIndex]
+      : null;
 
   String get currentFileName {
     final path = currentPath;
@@ -45,13 +45,14 @@ class ImageController extends ChangeNotifier {
   void _loadDirectory(String dirPath) {
     try {
       final dir = Directory(dirPath);
-      final files = dir
-          .listSync()
-          .whereType<File>()
-          .where((f) => _isSupported(f.path))
-          .map((f) => f.path)
-          .toList()
-        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      final files =
+          dir
+              .listSync()
+              .whereType<File>()
+              .where((f) => _isSupported(f.path))
+              .map((f) => f.path)
+              .toList()
+            ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
       _playlist = files;
       _currentIndex = 0;
@@ -65,13 +66,14 @@ class ImageController extends ChangeNotifier {
     try {
       final file = File(filePath);
       final parentDir = file.parent;
-      final siblings = parentDir
-          .listSync()
-          .whereType<File>()
-          .where((f) => _isSupported(f.path))
-          .map((f) => f.path)
-          .toList()
-        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      final siblings =
+          parentDir
+              .listSync()
+              .whereType<File>()
+              .where((f) => _isSupported(f.path))
+              .map((f) => f.path)
+              .toList()
+            ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
       if (siblings.isNotEmpty) {
         _playlist = siblings;

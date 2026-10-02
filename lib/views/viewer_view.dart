@@ -2,14 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../controllers/image_controller.dart';
+import '../src/rust/api/ela.dart';
 import '../theme/app_theme.dart';
 import '../widgets/proximity_fab.dart';
 
-enum ViewMode {
-  normal,
-  ela,
-  ascii,
-}
+enum ViewMode { normal, ela, ascii }
 
 class ViewerView extends StatefulWidget {
   final ImageController controller;
@@ -26,6 +23,9 @@ class _ViewerViewState extends State<ViewerView> {
   final FocusNode _focusNode = FocusNode();
   ViewMode _activeMode = ViewMode.normal;
   double _currentScale = 1.0;
+  Uint8List? _elaBytes;
+  bool _isProcessingEla = false;
+  String? _elaError;
 
   @override
   void initState() {
@@ -45,7 +45,38 @@ class _ViewerViewState extends State<ViewerView> {
 
   void _onImageChange() {
     _resetTransform();
+    _elaBytes = null;
+    _elaError = null;
     setState(() {});
+    if (_activeMode == ViewMode.ela) {
+      _generateEla();
+    }
+  }
+
+  Future<void> _generateEla() async {
+    final path = widget.controller.currentPath;
+    if (path == null) return;
+    setState(() {
+      _isProcessingEla = true;
+      _elaError = null;
+    });
+    try {
+      final fileBytes = await File(path).readAsBytes();
+      final result = await processElaBytes(rawBytes: fileBytes, scale: 25);
+      if (mounted) {
+        setState(() {
+          _elaBytes = result;
+          _isProcessingEla = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _elaError = e.toString();
+          _isProcessingEla = false;
+        });
+      }
+    }
   }
 
   void _onTransformChange() {
@@ -215,6 +246,9 @@ class _ViewerViewState extends State<ViewerView> {
       onSelected: (_) {
         setState(() => _activeMode = mode);
         Navigator.of(context).pop();
+        if (mode == ViewMode.ela && _elaBytes == null) {
+          _generateEla();
+        }
       },
     );
   }
@@ -262,43 +296,48 @@ class _ViewerViewState extends State<ViewerView> {
       ),
     );
 
-    // Placeholder view mode transformations
     if (_activeMode == ViewMode.ela) {
+      if (_isProcessingEla) {
+        content = Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: context.colors.secondary),
+              const SizedBox(height: 16),
+              Text(
+                'Crunching ELA in Rust...',
+                style: TextStyle(
+                  color: context.colors.secondary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        );
+      } else if (_elaError != null) {
+        content = Center(
+          child: Text(
+            'ELA Error:\n$_elaError',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: context.error),
+          ),
+        );
+      } else if (_elaBytes != null) {
+        content = Image.memory(
+          _elaBytes!,
+          fit: BoxFit.contain,
+        );
+      }
+    }
+ else if (_activeMode == ViewMode.ascii) {
       content = Stack(
         fit: StackFit.expand,
         children: [
           ColorFiltered(
-            colorFilter: const ColorFilter.matrix([
-              1.5, 0.2, 0.2, 0, 0,
-              0.2, 1.5, 0.2, 0, 0,
-              0.2, 0.2, 1.5, 0, 0,
-              0,   0,   0,   1, 0,
-            ]),
-            child: content,
-          ),
-          Positioned(
-            top: 20,
-            left: 20,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: context.colors.primary.withValues(alpha: 0.85),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                'ELA PREVIEW (Rust FFI pipeline pending)',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black),
-              ),
+            colorFilter: const ColorFilter.mode(
+              Colors.greenAccent,
+              BlendMode.color,
             ),
-          ),
-        ],
-      );
-    } else if (_activeMode == ViewMode.ascii) {
-      content = Stack(
-        fit: StackFit.expand,
-        children: [
-          ColorFiltered(
-            colorFilter: const ColorFilter.mode(Colors.greenAccent, BlendMode.color),
             child: content,
           ),
           Positioned(
@@ -312,7 +351,11 @@ class _ViewerViewState extends State<ViewerView> {
               ),
               child: const Text(
                 'ASCII MODE (Pending shader / renderer)',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: Colors.black,
+                ),
               ),
             ),
           ),
@@ -343,8 +386,10 @@ class _ViewerViewState extends State<ViewerView> {
         const SingleActivator(LogicalKeyboardKey.keyR): _resetTransform,
         const SingleActivator(LogicalKeyboardKey.digit1): () =>
             setState(() => _activeMode = ViewMode.normal),
-        const SingleActivator(LogicalKeyboardKey.digit2): () =>
-            setState(() => _activeMode = ViewMode.ela),
+        const SingleActivator(LogicalKeyboardKey.digit2): () {
+          setState(() => _activeMode = ViewMode.ela);
+          if (_elaBytes == null) _generateEla();
+        },
         const SingleActivator(LogicalKeyboardKey.digit3): () =>
             setState(() => _activeMode = ViewMode.ascii),
         const SingleActivator(LogicalKeyboardKey.keyO): _showOpenPathDialog,

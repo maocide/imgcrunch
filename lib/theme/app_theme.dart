@@ -19,7 +19,8 @@ extension ThemeColors on BuildContext {
   Color get backgroundLayer => const Color(0xFF121212);
   Color get surfaceLayer => Color.lerp(backgroundLayer, Colors.white, 0.03)!;
   Color get overlayLayer => Color.lerp(backgroundLayer, Colors.white, 0.05)!;
-  Color get overlayLayerBright => Color.lerp(backgroundLayer, Colors.white, 0.08)!;
+  Color get overlayLayerBright =>
+      Color.lerp(backgroundLayer, Colors.white, 0.08)!;
   Color get overlayLayerPop => Color.lerp(backgroundLayer, Colors.white, 0.14)!;
 
   // --- Border & divider colors ---

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'controllers/image_controller.dart';
+import 'src/rust/frb_generated.dart';
 import 'theme/app_theme.dart';
 import 'views/viewer_view.dart';
 
-void main(List<String> args) {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  await RustLib.init();
 
   final controller = ImageController();
   if (args.isNotEmpty) {

@@ -46,3 +46,7 @@ app.*.map.json
 
 # Generic
 /_mat
+
+# Rust / Cargo related
+**/target/
+rust/*.png
