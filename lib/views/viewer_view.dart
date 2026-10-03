@@ -1,9 +1,13 @@
 import 'dart:io';
+import 'package:desktop_drop/desktop_drop.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../controllers/image_controller.dart';
-import '../src/rust/api/ela.dart';
+import '../services/rust_image_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/clipboard_helper.dart';
+import '../utils/file_dialog_helper.dart';
 import '../widgets/proximity_fab.dart';
 
 enum ViewMode { normal, ela, ascii }
@@ -26,6 +30,7 @@ class _ViewerViewState extends State<ViewerView> {
   Uint8List? _elaBytes;
   bool _isProcessingEla = false;
   String? _elaError;
+  bool _isDragging = false;
 
   @override
   void initState() {
@@ -61,8 +66,10 @@ class _ViewerViewState extends State<ViewerView> {
       _elaError = null;
     });
     try {
-      final fileBytes = await File(path).readAsBytes();
-      final result = await processElaBytes(rawBytes: fileBytes, scale: 25);
+      final result = await RustImageService.instance.generateElaFromFile(
+        path,
+        scale: 25,
+      );
       if (mounted) {
         setState(() {
           _elaBytes = result;
@@ -93,6 +100,82 @@ class _ViewerViewState extends State<ViewerView> {
     setState(() {
       _currentScale = 1.0;
     });
+  }
+
+  void _zoomAt(Offset focalPoint, double scaleFactor) {
+    final matrix = _transformController.value.clone();
+    final currentScale = matrix.getMaxScaleOnAxis();
+    final newScale = currentScale * scaleFactor;
+    if (newScale < 0.05 || newScale > 35.0) return;
+
+    final t1 = Matrix4.translationValues(focalPoint.dx, focalPoint.dy, 0.0);
+    final s = Matrix4.diagonal3Values(scaleFactor, scaleFactor, 1.0);
+    final t2 = Matrix4.translationValues(-focalPoint.dx, -focalPoint.dy, 0.0);
+    _transformController.value = t1 * s * t2 * matrix;
+  }
+
+  Future<void> _copyImageToClipboard() async {
+    final path = widget.controller.currentPath;
+    if (path == null) return;
+    try {
+      final Uint8List bytes;
+      if (_activeMode == ViewMode.ela && _elaBytes != null) {
+        bytes = _elaBytes!;
+      } else {
+        bytes = await File(path).readAsBytes();
+      }
+
+      final success = await ClipboardHelper.copyImageBytes(bytes);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? 'Image copied to clipboard! (PNG)'
+                : 'Failed to copy to clipboard',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to copy image: $e')),
+      );
+    }
+  }
+
+  Future<void> _pasteImageFromClipboard() async {
+    try {
+      final images = await ClipboardHelper.getImagesFromClipboard();
+      if (!mounted) return;
+      if (images.isNotEmpty) {
+        widget.controller.loadPath(images.first);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No image found in clipboard')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error pasting from clipboard: $e')),
+      );
+    }
+  }
+
+  Future<void> _pickImageFile() async {
+    final path = await FileDialogHelper.pickImage();
+    if (path != null && mounted) {
+      widget.controller.loadPath(path);
+    }
+  }
+
+  Future<void> _pickDirectory() async {
+    final path = await FileDialogHelper.pickDirectory();
+    if (path != null && mounted) {
+      widget.controller.loadPath(path);
+    }
   }
 
   void _showMenu() {
@@ -205,8 +288,24 @@ class _ViewerViewState extends State<ViewerView> {
             runSpacing: 12,
             children: [
               FilledButton.tonalIcon(
+                icon: const Icon(Icons.image_outlined),
+                label: const Text('Open Image (O)'),
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  _pickImageFile();
+                },
+              ),
+              FilledButton.tonalIcon(
                 icon: const Icon(Icons.folder_open_rounded),
-                label: const Text('Open Path (O)'),
+                label: const Text('Open Folder'),
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  _pickDirectory();
+                },
+              ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.edit_road_rounded),
+                label: const Text('Manual Path...'),
                 onPressed: () {
                   Navigator.of(ctx).pop();
                   _showOpenPathDialog();
@@ -218,6 +317,24 @@ class _ViewerViewState extends State<ViewerView> {
                 onPressed: () {
                   _resetTransform();
                   Navigator.of(ctx).pop();
+                },
+              ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.copy_rounded),
+                label: const Text('Copy (Ctrl+C)'),
+                onPressed: c.hasImages
+                    ? () {
+                        Navigator.of(ctx).pop();
+                        _copyImageToClipboard();
+                      }
+                    : null,
+              ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.paste_rounded),
+                label: const Text('Paste (Ctrl+V)'),
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  _pasteImageFromClipboard();
                 },
               ),
               IconButton.filledTonal(
@@ -287,6 +404,7 @@ class _ViewerViewState extends State<ViewerView> {
     Widget content = Image.file(
       File(path),
       fit: BoxFit.contain,
+      filterQuality: FilterQuality.none,
       errorBuilder: (context, error, stackTrace) => Center(
         child: Text(
           'Failed to load image:\n$error',
@@ -326,6 +444,7 @@ class _ViewerViewState extends State<ViewerView> {
         content = Image.memory(
           _elaBytes!,
           fit: BoxFit.contain,
+          filterQuality: FilterQuality.none,
         );
       }
     }
@@ -363,12 +482,38 @@ class _ViewerViewState extends State<ViewerView> {
       );
     }
 
-    return InteractiveViewer(
+    final interactive = InteractiveViewer(
       transformationController: _transformController,
-      boundaryMargin: const EdgeInsets.all(double.infinity),
+      boundaryMargin: const EdgeInsets.all(0.0),
       minScale: 0.05,
       maxScale: 35.0,
+      scaleEnabled: false,
+      panEnabled: true,
       child: Center(child: content),
+    );
+
+    return Listener(
+      onPointerSignal: (event) {
+        if (event is PointerScrollEvent) {
+          final isCtrl = HardwareKeyboard.instance.isControlPressed;
+          if (isCtrl) {
+            final factor = event.scrollDelta.dy < 0 ? 1.15 : 0.87;
+            _zoomAt(event.localPosition, factor);
+          } else {
+            if (event.scrollDelta.dy > 0) {
+              widget.controller.next();
+            } else if (event.scrollDelta.dy < 0) {
+              widget.controller.previous();
+            }
+          }
+        }
+      },
+      onPointerDown: (event) {
+        if (event.buttons == kMiddleMouseButton) {
+          _resetTransform();
+        }
+      },
+      child: GestureDetector(onDoubleTap: _resetTransform, child: interactive),
     );
   }
 
@@ -392,18 +537,78 @@ class _ViewerViewState extends State<ViewerView> {
         },
         const SingleActivator(LogicalKeyboardKey.digit3): () =>
             setState(() => _activeMode = ViewMode.ascii),
-        const SingleActivator(LogicalKeyboardKey.keyO): _showOpenPathDialog,
+        const SingleActivator(LogicalKeyboardKey.keyO): _pickImageFile,
+        const SingleActivator(LogicalKeyboardKey.keyO, control: true):
+            _pickImageFile,
+        const SingleActivator(LogicalKeyboardKey.keyO, alt: true):
+            _showOpenPathDialog,
+        const SingleActivator(LogicalKeyboardKey.keyC, control: true):
+            _copyImageToClipboard,
+        const SingleActivator(LogicalKeyboardKey.keyV, control: true):
+            _pasteImageFromClipboard,
       },
       child: Focus(
         focusNode: _focusNode,
         autofocus: true,
-        child: Scaffold(
-          backgroundColor: context.backgroundLayer,
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Main edge-to-edge canvas
-              _buildImageCanvas(),
+        child: DropTarget(
+          onDragEntered: (_) => setState(() => _isDragging = true),
+          onDragExited: (_) => setState(() => _isDragging = false),
+          onDragDone: (detail) {
+            setState(() => _isDragging = false);
+            if (detail.files.isNotEmpty) {
+              widget.controller.loadPath(detail.files.first.path);
+            }
+          },
+          child: Scaffold(
+            backgroundColor: context.backgroundLayer,
+            body: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Main edge-to-edge canvas
+                _buildImageCanvas(),
+
+                // Drag and drop overlay
+                if (_isDragging)
+                  Container(
+                    color: context.backgroundLayer.withValues(alpha: 0.85),
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 32,
+                          vertical: 20,
+                        ),
+                        decoration: BoxDecoration(
+                          color: context.overlayLayerPop,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: context.colors.secondary,
+                            width: 2,
+                          ),
+                          boxShadow: AppTheme.floatingShadow,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.file_download_rounded,
+                              color: context.colors.secondary,
+                              size: 36,
+                            ),
+                            const SizedBox(width: 14),
+                            Text(
+                              'DROP IMAGE TO LOAD',
+                              style: TextStyle(
+                                color: context.colors.secondary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
 
               // Subtle Minimalist HUD (Status Pill)
               if (c.hasImages)
@@ -451,6 +656,7 @@ class _ViewerViewState extends State<ViewerView> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

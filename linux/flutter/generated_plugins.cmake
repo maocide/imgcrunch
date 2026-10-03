@@ -3,10 +3,14 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  desktop_drop
+  irondash_engine_context
+  super_native_extensions
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
   image_crunch
+  jni
 )
 
 set(PLUGIN_BUNDLED_LIBRARIES)
