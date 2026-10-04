@@ -7,37 +7,40 @@ extension ThemeColors on BuildContext {
 
   // --- Semantic text colors ---
   Color get textHeading => colors.onSurface;
-  Color get textBody => colors.onSurface.withValues(alpha: 0.8);
-  Color get textSubdued => colors.onSurface.withValues(alpha: 0.5);
-  Color get textMuted => colors.onSurface.withValues(alpha: 0.3);
+  Color get textBody => colors.onSurface.withValues(alpha: 0.85);
+  Color get textSubdued => colors.onSurface.withValues(alpha: 0.55);
+  Color get textMuted => colors.onSurface.withValues(alpha: 0.35);
   Color get textDisabled => textMuted;
 
-  // --- Surface & overlay colors ---
-  Color get glassBg => colors.surface.withValues(alpha: 0.4);
+  // --- X-Copy Pro 1992 Hardware Palette ---
+  Color get crtBlack => AppTheme.xCopyCrtBlack;
+  Color get wireframeCyan => AppTheme.xCopyCyan;
+  Color get wireframeCyanDim => AppTheme.xCopyCyanDim;
+  Color get ledAmber => AppTheme.xCopyAmber;
+  Color get phosphorGreen => AppTheme.xCopyGreen;
+  Color get alertRed => AppTheme.xCopyRed;
+  Color get steelLight => AppTheme.xCopySteelLight;
+  Color get steelMid => AppTheme.xCopySteel;
+  Color get steelDark => AppTheme.xCopySteelDark;
 
-  // Elevation system (Lerping towards White)
-  Color get backgroundLayer => const Color(0xFF121212);
-  Color get surfaceLayer => Color.lerp(backgroundLayer, Colors.white, 0.03)!;
-  Color get overlayLayer => Color.lerp(backgroundLayer, Colors.white, 0.05)!;
-  Color get overlayLayerBright =>
-      Color.lerp(backgroundLayer, Colors.white, 0.08)!;
-  Color get overlayLayerPop => Color.lerp(backgroundLayer, Colors.white, 0.14)!;
+  // Surface & overlay layers
+  Color get backgroundLayer => AppTheme.xCopyCrtBlack;
+  Color get surfaceLayer => AppTheme.xCopySteelDark;
+  Color get overlayLayer => AppTheme.xCopySteel;
+  Color get overlayLayerBright => AppTheme.xCopySteelLight;
+  Color get overlayLayerPop => const Color(0xFF323B4A);
 
-  // --- Border & divider colors ---
-  Color get borderSubtle => colors.onSurface.withValues(alpha: 0.08);
-  Color get dividerHard => colors.onSurface.withValues(alpha: 0.3);
+  // Border & divider colors
+  Color get borderSubtle => AppTheme.xCopyCyan.withValues(alpha: 0.3);
+  Color get dividerHard => AppTheme.xCopyCyan;
   Color get textHintLine => colors.onSurface.withValues(alpha: 0.4);
 
-  // --- Primary/secondary with alpha helpers ---
-  Color primaryWithAlpha(double a) => colors.primary.withValues(alpha: a);
-  Color secondaryWithAlpha(double a) => colors.secondary.withValues(alpha: a);
-
   // Actions and indicators
-  Color get subduedActionIcon => colors.secondary.withValues(alpha: 0.6);
-  Color get glowAccent => colors.secondary.withValues(alpha: 0.35);
+  Color get subduedActionIcon => AppTheme.xCopyCyan.withValues(alpha: 0.7);
+  Color get glowAccent => AppTheme.xCopyCyan.withValues(alpha: 0.4);
 
-  Color get error => colors.error;
-  Color get warning => colors.tertiary;
+  Color get error => AppTheme.xCopyRed;
+  Color get warning => AppTheme.xCopyAmber;
 }
 
 // THEME FACTORY
@@ -45,61 +48,68 @@ class AppTheme {
   // Global floating drop shadow
   static List<BoxShadow> get floatingShadow => [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.45),
-      blurRadius: 18,
-      offset: const Offset(0, 4),
+      color: Colors.black.withValues(alpha: 0.65),
+      blurRadius: 16,
+      offset: const Offset(0, 6),
     ),
   ];
 
-  // Static foundations
-  static const Color baseGrey = Color(0xFF161616);
-  static const Color surfaceDark = Color(0xFF1E1E24);
-
-  // Default Cyber / Forensics Neon identity
-  static const Color defaultPrimary = Color(0xFFFF85B3); // Neon Pink
-  static const Color defaultSecondary = Color(0xFF00E0E0); // Forensic Cyan
-  static const Color defaultTertiary = Color(0xFFFED83A); // Warning Amber
+  // X-COPY Pro (1992) Signature Palette
+  static const Color xCopyCyan = Color(0xFF00E5FF);        // 1px Wireframe highlight
+  static const Color xCopyCyanDim = Color(0xFF00A2B3);     // Dim wireframe border / secondary labels
+  static const Color xCopyAmber = Color(0xFFFFCC00);       // Glowing digital amber
+  static const Color xCopyGreen = Color(0xFF00FF66);       // Phosphor CRT terminal green
+  static const Color xCopyRed = Color(0xFFFF3333);         // Alert / sync error red
+  static const Color xCopyCrtBlack = Color(0xFF05070B);    // Deep cathode black well
+  static const Color xCopySteelLight = Color(0xFF5A667A);  // Bevel top/left highlight
+  static const Color xCopySteel = Color(0xFF282F3B);       // Brushed chassis panel
+  static const Color xCopySteelDark = Color(0xFF141820);   // Bevel bottom/right shadow
+  static const Color xCopyRivet = Color(0xFF8896AB);       // Metallic rivet head
+  static const Color xCopyRivetDark = Color(0xFF0D1017);   // Rivet inset pit
 
   static ThemeData buildTheme({Color? primary, Color? secondary}) {
-    final activePrimary = primary ?? defaultPrimary;
-    final activeSecondary = secondary ?? defaultSecondary;
+    final activePrimary = primary ?? xCopyCyan;
+    final activeSecondary = secondary ?? xCopyAmber;
 
     return ThemeData.dark().copyWith(
-      scaffoldBackgroundColor: const Color(0xFF121212),
+      scaffoldBackgroundColor: xCopyCrtBlack,
       colorScheme: ColorScheme.dark(
         primary: activePrimary,
         secondary: activeSecondary,
-        tertiary: defaultTertiary,
-        surface: baseGrey,
-        error: defaultTertiary,
+        tertiary: xCopyGreen,
+        surface: xCopySteel,
+        error: xCopyRed,
         onPrimary: const Color(0xFF000000),
         onSecondary: const Color(0xFF000000),
         onTertiary: const Color(0xFF000000),
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: baseGrey,
-        contentTextStyle: TextStyle(color: activePrimary),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: xCopySteelDark,
+        contentTextStyle: const TextStyle(
+          color: xCopyGreen,
+          fontFamily: 'monospace',
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.0,
+        ),
+        shape: Border.all(color: xCopyCyan, width: 1.5),
         behavior: SnackBarBehavior.floating,
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: baseGrey,
+        backgroundColor: xCopySteelDark,
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          side: BorderSide(
-            color: activePrimary.withValues(alpha: 0.5),
-            width: 1.5,
-          ),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        titleTextStyle: TextStyle(
-          color: activePrimary,
-          fontSize: 18,
+        shape: Border.all(color: xCopyCyan, width: 2.0),
+        titleTextStyle: const TextStyle(
+          color: xCopyAmber,
+          fontFamily: 'monospace',
+          fontSize: 16,
           fontWeight: FontWeight.bold,
+          letterSpacing: 1.5,
         ),
-        contentTextStyle: TextStyle(
-          color: Colors.white.withValues(alpha: 0.8),
-          fontSize: 14,
+        contentTextStyle: const TextStyle(
+          color: xCopyGreen,
+          fontFamily: 'monospace',
+          fontSize: 13,
+          letterSpacing: 0.5,
         ),
       ),
     );

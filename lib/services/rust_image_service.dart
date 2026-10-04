@@ -17,10 +17,7 @@ class RustImageService {
     Uint8List rawBytes, {
     int scale = 25,
   }) async {
-    return await rust_ela.processElaBytes(
-      rawBytes: rawBytes,
-      scale: scale,
-    );
+    return await rust_ela.processElaBytes(rawBytes: rawBytes, scale: scale);
   }
 
   /// Convenience method: Reads file at [filePath] and computes ELA.
@@ -40,7 +37,7 @@ class RustImageService {
   Future<String> convertToAsciiFromBytes(
     Uint8List rawBytes, {
     int targetWidth = 100,
-    double charAspect = 0.45,
+    double charAspect = 1,
   }) async {
     return await rust_ascii.convertToAscii(
       rawBytes: rawBytes,
@@ -53,7 +50,7 @@ class RustImageService {
   Future<String> convertToAsciiFromFile(
     String filePath, {
     int targetWidth = 100,
-    double charAspect = 0.45,
+    double charAspect = 1,
   }) async {
     final file = File(filePath);
     if (!await file.exists()) {
@@ -70,7 +67,7 @@ class RustImageService {
   /// Extracts contiguous printable ASCII strings of at least [minLen] characters.
   Future<String> extractStringsFromBytes(
     Uint8List rawBytes, {
-    int minLen = 8,
+    int minLen = 6,
   }) async {
     return await rust_strings.extractStrings(
       rawBytes: rawBytes,
@@ -81,7 +78,7 @@ class RustImageService {
   /// Convenience method: Reads file at [filePath] and extracts ASCII strings.
   Future<String> extractStringsFromFile(
     String filePath, {
-    int minLen = 8,
+    int minLen = 6,
   }) async {
     final file = File(filePath);
     if (!await file.exists()) {

@@ -36,30 +36,37 @@ class _ProximityFabState extends State<ProximityFab> {
             alignment: Alignment.bottomRight,
             children: [
               Padding(
-                padding: const EdgeInsets.all(24.0),
+                padding: const EdgeInsets.only(right: 18.0, bottom: 42.0),
                 child: AnimatedOpacity(
                   opacity: _isNear ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 200),
+                  duration: const Duration(milliseconds: 150),
                   curve: Curves.easeInOut,
                   child: AnimatedScale(
-                    scale: _isNear ? 1.0 : 0.6,
-                    duration: const Duration(milliseconds: 200),
+                    scale: _isNear ? 1.0 : 0.7,
+                    duration: const Duration(milliseconds: 150),
                     curve: Curves.easeOutBack,
                     child: IgnorePointer(
                       ignoring: !_isNear,
                       child: Container(
+                        width: 42,
+                        height: 42,
                         decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          boxShadow: context.theme.brightness == Brightness.dark
-                              ? AppTheme.floatingShadow
-                              : null,
+                          color: AppTheme.xCopySteel,
+                          border: Border.all(
+                            color: AppTheme.xCopyCyan,
+                            width: 1.5,
+                          ),
+                          boxShadow: AppTheme.floatingShadow,
                         ),
-                        child: FloatingActionButton(
-                          backgroundColor: context.colors.secondary,
-                          foregroundColor: context.colors.onSecondary,
-                          elevation: 6,
-                          onPressed: widget.onPressed,
-                          child: const Icon(Icons.bolt_rounded, size: 28),
+                        child: InkWell(
+                          onTap: widget.onPressed,
+                          child: const Center(
+                            child: Icon(
+                              Icons.bolt_rounded,
+                              size: 22,
+                              color: AppTheme.xCopyAmber,
+                            ),
+                          ),
                         ),
                       ),
                     ),
