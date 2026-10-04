@@ -30,6 +30,9 @@ class _ViewerViewState extends State<ViewerView> {
   Uint8List? _elaBytes;
   bool _isProcessingEla = false;
   String? _elaError;
+  String? _asciiText;
+  bool _isProcessingAscii = false;
+  String? _asciiError;
   bool _isDragging = false;
 
   @override
@@ -52,9 +55,13 @@ class _ViewerViewState extends State<ViewerView> {
     _resetTransform();
     _elaBytes = null;
     _elaError = null;
+    _asciiText = null;
+    _asciiError = null;
     setState(() {});
     if (_activeMode == ViewMode.ela) {
       _generateEla();
+    } else if (_activeMode == ViewMode.ascii) {
+      _generateAscii();
     }
   }
 
@@ -81,6 +88,35 @@ class _ViewerViewState extends State<ViewerView> {
         setState(() {
           _elaError = e.toString();
           _isProcessingEla = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _generateAscii() async {
+    final path = widget.controller.currentPath;
+    if (path == null) return;
+    setState(() {
+      _isProcessingAscii = true;
+      _asciiError = null;
+    });
+    try {
+      final result = await RustImageService.instance.convertToAsciiFromFile(
+        path,
+        targetWidth: 120,
+        charAspect: 0.45,
+      );
+      if (mounted) {
+        setState(() {
+          _asciiText = result;
+          _isProcessingAscii = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _asciiError = e.toString();
+          _isProcessingAscii = false;
         });
       }
     }
@@ -365,6 +401,8 @@ class _ViewerViewState extends State<ViewerView> {
         Navigator.of(context).pop();
         if (mode == ViewMode.ela && _elaBytes == null) {
           _generateEla();
+        } else if (mode == ViewMode.ascii && _asciiText == null) {
+          _generateAscii();
         }
       },
     );
@@ -448,38 +486,49 @@ class _ViewerViewState extends State<ViewerView> {
         );
       }
     }
- else if (_activeMode == ViewMode.ascii) {
-      content = Stack(
-        fit: StackFit.expand,
-        children: [
-          ColorFiltered(
-            colorFilter: const ColorFilter.mode(
-              Colors.greenAccent,
-              BlendMode.color,
-            ),
-            child: content,
-          ),
-          Positioned(
-            top: 20,
-            left: 20,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.greenAccent,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                'ASCII MODE (Pending shader / renderer)',
+    else if (_activeMode == ViewMode.ascii) {
+      if (_isProcessingAscii) {
+        content = Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: context.colors.secondary),
+              const SizedBox(height: 16),
+              Text(
+                'Crunching ASCII in Rust...',
                 style: TextStyle(
+                  color: context.colors.secondary,
                   fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                  color: Colors.black,
                 ),
               ),
+            ],
+          ),
+        );
+      } else if (_asciiError != null) {
+        content = Center(
+          child: Text(
+            'ASCII Error:\n$_asciiError',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: context.error),
+          ),
+        );
+      } else if (_asciiText != null) {
+        content = Center(
+          child: FittedBox(
+            fit: BoxFit.contain,
+            child: Text(
+              _asciiText!,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 10,
+                height: 0.9,
+                letterSpacing: 0.8,
+                color: Color(0xFF39FF14),
+              ),
             ),
           ),
-        ],
-      );
+        );
+      }
     }
 
     final interactive = InteractiveViewer(
@@ -535,8 +584,10 @@ class _ViewerViewState extends State<ViewerView> {
           setState(() => _activeMode = ViewMode.ela);
           if (_elaBytes == null) _generateEla();
         },
-        const SingleActivator(LogicalKeyboardKey.digit3): () =>
-            setState(() => _activeMode = ViewMode.ascii),
+        const SingleActivator(LogicalKeyboardKey.digit3): () {
+          setState(() => _activeMode = ViewMode.ascii);
+          if (_asciiText == null) _generateAscii();
+        },
         const SingleActivator(LogicalKeyboardKey.keyO): _pickImageFile,
         const SingleActivator(LogicalKeyboardKey.keyO, control: true):
             _pickImageFile,

@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:typed_data';
+import '../src/rust/api/ascii.dart' as rust_ascii;
 import '../src/rust/api/ela.dart' as rust_ela;
+import '../src/rust/api/strings.dart' as rust_strings;
 
 /// Singleton service wrapping all Rust FFI operations for image crunching and forensics.
 class RustImageService {
@@ -32,5 +34,60 @@ class RustImageService {
     }
     final bytes = await file.readAsBytes();
     return await generateElaFromBytes(bytes, scale: scale);
+  }
+
+  /// Converts image bytes to an ASCII art text string.
+  Future<String> convertToAsciiFromBytes(
+    Uint8List rawBytes, {
+    int targetWidth = 100,
+    double charAspect = 0.45,
+  }) async {
+    return await rust_ascii.convertToAscii(
+      rawBytes: rawBytes,
+      targetWidth: BigInt.from(targetWidth),
+      charAspect: charAspect,
+    );
+  }
+
+  /// Convenience method: Reads file at [filePath] and converts to ASCII art.
+  Future<String> convertToAsciiFromFile(
+    String filePath, {
+    int targetWidth = 100,
+    double charAspect = 0.45,
+  }) async {
+    final file = File(filePath);
+    if (!await file.exists()) {
+      throw FileSystemException('Image file not found', filePath);
+    }
+    final bytes = await file.readAsBytes();
+    return await convertToAsciiFromBytes(
+      bytes,
+      targetWidth: targetWidth,
+      charAspect: charAspect,
+    );
+  }
+
+  /// Extracts contiguous printable ASCII strings of at least [minLen] characters.
+  Future<String> extractStringsFromBytes(
+    Uint8List rawBytes, {
+    int minLen = 8,
+  }) async {
+    return await rust_strings.extractStrings(
+      rawBytes: rawBytes,
+      minLen: BigInt.from(minLen),
+    );
+  }
+
+  /// Convenience method: Reads file at [filePath] and extracts ASCII strings.
+  Future<String> extractStringsFromFile(
+    String filePath, {
+    int minLen = 8,
+  }) async {
+    final file = File(filePath);
+    if (!await file.exists()) {
+      throw FileSystemException('Image file not found', filePath);
+    }
+    final bytes = await file.readAsBytes();
+    return await extractStringsFromBytes(bytes, minLen: minLen);
   }
 }

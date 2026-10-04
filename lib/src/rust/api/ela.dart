@@ -8,7 +8,6 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These functions are ignored because they are not marked as `pub`: `make_ela`
 
-/// Process ELA decoding image from bytes. Returns a PNG-encoded byte buffer.
 Future<Uint8List> processElaBytes({
   required List<int> rawBytes,
   required int scale,
