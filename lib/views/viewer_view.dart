@@ -19,8 +19,13 @@ import '../widgets/retro_status_bar.dart';
 
 class ViewerView extends StatefulWidget {
   final ImageController controller;
+  final ViewMode? initialMode;
 
-  const ViewerView({super.key, required this.controller});
+  const ViewerView({
+    super.key,
+    required this.controller,
+    this.initialMode,
+  });
 
   @override
   State<ViewerView> createState() => _ViewerViewState();
@@ -56,6 +61,9 @@ class _ViewerViewState extends State<ViewerView>
   @override
   void initState() {
     super.initState();
+    if (widget.initialMode != null) {
+      _crunchController.setMode(widget.initialMode!);
+    }
     widget.controller.addListener(_onImageChange);
     _transformController.addListener(_onTransformChange);
     _crunchController.addListener(_onCrunchStateChange);
