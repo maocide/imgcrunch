@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 class RetroStatusBar extends StatelessWidget {
   final String statusText;
   final String? secondaryText;
+  final Size? dimensions;
   final double? zoomScale;
   final int? currentIndex;
   final int? totalCount;
@@ -13,6 +14,7 @@ class RetroStatusBar extends StatelessWidget {
     super.key,
     required this.statusText,
     this.secondaryText,
+    this.dimensions,
     this.zoomScale,
     this.currentIndex,
     this.totalCount,
@@ -21,6 +23,9 @@ class RetroStatusBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final resStr = dimensions != null
+        ? '${dimensions!.width.toInt()}x${dimensions!.height.toInt()}'
+        : null;
     final zoomStr = zoomScale != null ? '${(zoomScale! * 100).toInt()}%' : null;
     final trackStr =
         (currentIndex != null && totalCount != null && totalCount! > 0)
@@ -31,16 +36,18 @@ class RetroStatusBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: AppTheme.xCopyCrtBlack,
-        border: Border.all(color: AppTheme.xCopyCyan, width: 1.0),
+        border: Border.all(color: context.wireframeCyan, width: 1.0),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final w = constraints.maxWidth;
           final isCompact = w < 480;
+          final showResolution = w > 520 && resStr != null;
           final showZoom = w > 360 && zoomStr != null;
           final showTrack = w > 270 && trackStr != null;
-          final showSecondary = w > 520 && secondaryText != null;
+          final showSecondary = w > 640 && secondaryText != null;
 
+          final resPrefix = isCompact ? 'R: ' : 'RES: ';
           final zoomPrefix = isCompact ? 'Z: ' : 'ZOOM: ';
           final trackPrefix = isCompact ? 'TRK: ' : 'TRACK: ';
 
@@ -75,12 +82,40 @@ class RetroStatusBar extends StatelessWidget {
                 const SizedBox(width: 10),
                 Text(
                   secondaryText!,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 11,
-                    color: AppTheme.xCopyCyan,
+                    color: context.wireframeCyan,
                     letterSpacing: 0.8,
                   ),
+                ),
+              ],
+
+              if (showResolution) ...[
+                const SizedBox(width: 12),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      resPrefix,
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                        color: context.wireframeCyanDim,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    Text(
+                      resStr,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.xCopyAmber,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                  ],
                 ),
               ],
 
@@ -91,10 +126,10 @@ class RetroStatusBar extends StatelessWidget {
                   children: [
                     Text(
                       zoomPrefix,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'monospace',
                         fontSize: 11,
-                        color: AppTheme.xCopyCyanDim,
+                        color: context.wireframeCyanDim,
                         letterSpacing: 1.0,
                       ),
                     ),
@@ -121,10 +156,10 @@ class RetroStatusBar extends StatelessWidget {
                     children: [
                       Text(
                         trackPrefix,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 11,
-                          color: AppTheme.xCopyCyanDim,
+                          color: context.wireframeCyanDim,
                           letterSpacing: 1.0,
                         ),
                       ),

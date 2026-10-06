@@ -5,7 +5,7 @@ class RetroButton extends StatefulWidget {
   final String label;
   final VoidCallback? onPressed;
   final Color textColor;
-  final Color borderColor;
+  final Color? borderColor;
   final String? shortcut;
   final IconData? icon;
   final bool isSelected;
@@ -17,7 +17,7 @@ class RetroButton extends StatefulWidget {
     required this.label,
     required this.onPressed,
     this.textColor = AppTheme.xCopyAmber,
-    this.borderColor = AppTheme.xCopyCyan,
+    this.borderColor,
     this.shortcut,
     this.icon,
     this.isSelected = false,
@@ -40,7 +40,11 @@ class _RetroButtonState extends State<RetroButton> {
         ? (widget.isSelected ? Colors.black : widget.textColor)
         : AppTheme.xCopySteelLight;
     final activeBorder = enabled
-        ? (_isHovered ? Colors.white : (widget.isSelected ? Colors.white : widget.borderColor))
+        ? (_isHovered
+            ? Colors.white
+            : (widget.isSelected
+                ? Colors.white
+                : (widget.borderColor ?? context.wireframeCyan)))
         : AppTheme.xCopySteelDark;
     final activeBg = widget.isSelected
         ? widget.textColor

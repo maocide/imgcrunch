@@ -32,4 +32,28 @@ void main() {
 
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('RetroStatusBar displays dimensions when space permits', (tester) async {
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          bottomNavigationBar: RetroStatusBar(
+            statusText: 'READY',
+            dimensions: Size(1920, 1080),
+            zoomScale: 1.0,
+            currentIndex: 0,
+            totalCount: 1,
+            trailing: Text('MENU'),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('1920x1080'), findsOneWidget);
+    expect(find.text('RES: '), findsOneWidget);
+  });
 }

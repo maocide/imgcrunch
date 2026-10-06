@@ -14,11 +14,11 @@ extension ThemeColors on BuildContext {
 
   // --- X-Copy Pro 1992 Hardware Palette ---
   Color get crtBlack => AppTheme.xCopyCrtBlack;
-  Color get wireframeCyan => AppTheme.xCopyCyan;
-  Color get wireframeCyanDim => AppTheme.xCopyCyanDim;
-  Color get ledAmber => AppTheme.xCopyAmber;
+  Color get wireframeCyan => colors.primary;
+  Color get wireframeCyanDim => colors.primary.withValues(alpha: 0.65);
+  Color get ledAmber => colors.secondary;
   Color get phosphorGreen => AppTheme.xCopyGreen;
-  Color get alertRed => AppTheme.xCopyRed;
+  Color get alertRed => colors.error;
   Color get steelLight => AppTheme.xCopySteelLight;
   Color get steelMid => AppTheme.xCopySteel;
   Color get steelDark => AppTheme.xCopySteelDark;
@@ -31,16 +31,16 @@ extension ThemeColors on BuildContext {
   Color get overlayLayerPop => const Color(0xFF323B4A);
 
   // Border & divider colors
-  Color get borderSubtle => AppTheme.xCopyCyan.withValues(alpha: 0.3);
-  Color get dividerHard => AppTheme.xCopyCyan;
+  Color get borderSubtle => wireframeCyan.withValues(alpha: 0.3);
+  Color get dividerHard => wireframeCyan;
   Color get textHintLine => colors.onSurface.withValues(alpha: 0.4);
 
   // Actions and indicators
-  Color get subduedActionIcon => AppTheme.xCopyCyan.withValues(alpha: 0.7);
-  Color get glowAccent => AppTheme.xCopyCyan.withValues(alpha: 0.4);
+  Color get subduedActionIcon => wireframeCyan.withValues(alpha: 0.7);
+  Color get glowAccent => wireframeCyan.withValues(alpha: 0.4);
 
-  Color get error => AppTheme.xCopyRed;
-  Color get warning => AppTheme.xCopyAmber;
+  Color get error => colors.error;
+  Color get warning => colors.secondary;
 }
 
 // THEME FACTORY
@@ -91,13 +91,13 @@ class AppTheme {
           fontWeight: FontWeight.bold,
           letterSpacing: 1.0,
         ),
-        shape: Border.all(color: xCopyCyan, width: 1.5),
+        shape: Border.all(color: activePrimary, width: 1.5),
         behavior: SnackBarBehavior.floating,
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: xCopySteelDark,
         elevation: 0,
-        shape: Border.all(color: xCopyCyan, width: 2.0),
+        shape: Border.all(color: activePrimary, width: 2.0),
         titleTextStyle: const TextStyle(
           color: xCopyAmber,
           fontFamily: 'monospace',

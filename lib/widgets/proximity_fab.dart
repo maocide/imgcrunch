@@ -53,7 +53,7 @@ class _ProximityFabState extends State<ProximityFab> {
                         decoration: BoxDecoration(
                           color: AppTheme.xCopySteel,
                           border: Border.all(
-                            color: AppTheme.xCopyCyan,
+                            color: context.wireframeCyan,
                             width: 1.5,
                           ),
                           boxShadow: AppTheme.floatingShadow,

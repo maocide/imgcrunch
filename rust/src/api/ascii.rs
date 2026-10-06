@@ -33,16 +33,16 @@ pub fn convert_to_ascii(
         // divide by 256
         let grey = (grey_u32 / 256) as u8;
 
-        // map grey to ascii
+        // map grey to ascii (inverted for dark CRT btw)
         let c = match grey {
-            0..=31 => '#',
-            32..=63 => '%',
-            64..=95 => '*',
-            96..=127 => '=',
+            0..=31 => ' ',
+            32..=63 => '.',
+            64..=95 => ':',
+            96..=127 => ';',
             128..=159 => '+',
-            160..=191 => ';',
-            192..=223 => ':',
-            224..=255 => '.',
+            160..=191 => '*',
+            192..=223 => '%',
+            224..=255 => '#',
         };
 
         if px_counter % width == 0 && px_counter != 0 {

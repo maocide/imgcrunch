@@ -37,7 +37,7 @@ class RetroPanel extends StatelessWidget {
         decoration = BoxDecoration(
           color: backgroundColor ?? AppTheme.xCopyCrtBlack,
           border: Border.all(
-            color: borderColor ?? AppTheme.xCopyCyan,
+            color: borderColor ?? context.wireframeCyan,
             width: borderWidth,
           ),
         );
@@ -72,7 +72,7 @@ class RetroPanel extends StatelessWidget {
           margin: margin,
           child: CustomPaint(
             painter: _RivetBorderPainter(
-              borderColor: borderColor ?? AppTheme.xCopyCyan,
+              borderColor: borderColor ?? context.wireframeCyan,
               bgColor: backgroundColor ?? AppTheme.xCopySteel,
             ),
             child: Padding(
