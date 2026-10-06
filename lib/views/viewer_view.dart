@@ -11,6 +11,7 @@ import '../theme/app_theme.dart';
 import '../utils/clipboard_helper.dart';
 import '../utils/file_dialog_helper.dart';
 import '../utils/image_matrix_helper.dart';
+import '../widgets/amiga_copper_background.dart';
 import '../widgets/proximity_fab.dart';
 import '../widgets/retro_button.dart';
 import '../widgets/retro_led.dart';
@@ -21,11 +22,7 @@ class ViewerView extends StatefulWidget {
   final ImageController controller;
   final ViewMode? initialMode;
 
-  const ViewerView({
-    super.key,
-    required this.controller,
-    this.initialMode,
-  });
+  const ViewerView({super.key, required this.controller, this.initialMode});
 
   @override
   State<ViewerView> createState() => _ViewerViewState();
@@ -42,9 +39,9 @@ class _ViewerViewState extends State<ViewerView>
 
   late final AnimationController _borderAnimationController =
       AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 250),
-  );
+        vsync: this,
+        duration: const Duration(milliseconds: 250),
+      );
   late final Animation<Color?> _borderColorAnimation = ColorTween(
     begin: AppTheme.xCopyCyan,
     end: AppTheme.xCopyAmber,
@@ -518,6 +515,7 @@ class _ViewerViewState extends State<ViewerView>
         return Center(
           child: RetroPanel(
             style: RetroPanelStyle.sunkenCrt,
+            backgroundColor: AppTheme.xCopySteel.withValues(alpha: 0.5),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -898,16 +896,18 @@ class _ViewerViewState extends State<ViewerView>
 
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: activePrimary,
-            ),
+            colorScheme: Theme.of(
+              context,
+            ).colorScheme.copyWith(primary: activePrimary),
           ),
           child: Builder(
             builder: (context) {
               return CallbackShortcuts(
                 bindings: {
-                  const SingleActivator(LogicalKeyboardKey.escape): _handleEscape,
-                  const SingleActivator(LogicalKeyboardKey.keyH): _showHelpDialog,
+                  const SingleActivator(LogicalKeyboardKey.escape):
+                      _handleEscape,
+                  const SingleActivator(LogicalKeyboardKey.keyH):
+                      _showHelpDialog,
                   const SingleActivator(LogicalKeyboardKey.arrowRight): () {
                     _bumpHud();
                     c.next();
@@ -924,8 +924,10 @@ class _ViewerViewState extends State<ViewerView>
                     _bumpHud();
                     c.previous();
                   },
-                  const SingleActivator(LogicalKeyboardKey.digit0): _resetTransform,
-                  const SingleActivator(LogicalKeyboardKey.keyR): _resetTransform,
+                  const SingleActivator(LogicalKeyboardKey.digit0):
+                      _resetTransform,
+                  const SingleActivator(LogicalKeyboardKey.keyR):
+                      _resetTransform,
                   const SingleActivator(LogicalKeyboardKey.digit1): () {
                     _bumpHud();
                     _crunchController.setMode(ViewMode.normal);
@@ -943,7 +945,8 @@ class _ViewerViewState extends State<ViewerView>
                     _crunchController.setMode(ViewMode.strings);
                   },
                   const SingleActivator(LogicalKeyboardKey.keyM): _showMenu,
-                  const SingleActivator(LogicalKeyboardKey.keyO): _pickImageFile,
+                  const SingleActivator(LogicalKeyboardKey.keyO):
+                      _pickImageFile,
                   const SingleActivator(LogicalKeyboardKey.keyO, control: true):
                       _pickImageFile,
                   const SingleActivator(LogicalKeyboardKey.keyO, alt: true):
@@ -965,9 +968,12 @@ class _ViewerViewState extends State<ViewerView>
                         widget.controller.loadPath(detail.files.first.path);
                       }
                     },
-                    child: Scaffold(
-                      backgroundColor: context.backgroundLayer,
-                      body: Column(
+                    child: AmigaCopperBackground(
+                      isProcessing: isProcessing,
+                      mode: _crunchController.activeMode,
+                      child: Scaffold(
+                        backgroundColor: Colors.transparent,
+                        body: Column(
                           children: [
                             // Canvas Viewport Area
                             Expanded(
@@ -980,7 +986,9 @@ class _ViewerViewState extends State<ViewerView>
                                   // Drag and drop overlay
                                   if (_isDragging)
                                     Container(
-                                      color: Colors.black.withValues(alpha: 0.85),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.85,
+                                      ),
                                       child: Center(
                                         child: RetroPanel(
                                           style: RetroPanelStyle.rivetedPlate,
@@ -1020,11 +1028,14 @@ class _ViewerViewState extends State<ViewerView>
                                       left: 14,
                                       child: AnimatedOpacity(
                                         opacity: _isHudVisible ? 1.0 : 0.0,
-                                        duration: const Duration(milliseconds: 250),
+                                        duration: const Duration(
+                                          milliseconds: 250,
+                                        ),
                                         child: IgnorePointer(
                                           ignoring: !_isHudVisible,
                                           child: RetroPanel(
-                                            style: RetroPanelStyle.cyanWireframe,
+                                            style:
+                                                RetroPanelStyle.cyanWireframe,
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 10,
                                               vertical: 6,
@@ -1036,19 +1047,24 @@ class _ViewerViewState extends State<ViewerView>
                                                   isActive: true,
                                                   size: 7,
                                                   activeColor: _modeColor(
-                                                    _crunchController.activeMode,
+                                                    _crunchController
+                                                        .activeMode,
                                                   ),
                                                 ),
                                                 const SizedBox(width: 8),
                                                 Text(
-                                                  _crunchController.activeMode.name.toUpperCase(),
+                                                  _crunchController
+                                                      .activeMode
+                                                      .name
+                                                      .toUpperCase(),
                                                   style: TextStyle(
                                                     fontFamily: 'monospace',
                                                     fontSize: 10,
                                                     fontWeight: FontWeight.bold,
                                                     letterSpacing: 1.2,
                                                     color: _modeColor(
-                                                      _crunchController.activeMode,
+                                                      _crunchController
+                                                          .activeMode,
                                                     ),
                                                   ),
                                                 ),
@@ -1056,7 +1072,8 @@ class _ViewerViewState extends State<ViewerView>
                                                 Container(
                                                   width: 1,
                                                   height: 12,
-                                                  color: context.wireframeCyanDim,
+                                                  color:
+                                                      context.wireframeCyanDim,
                                                 ),
                                                 const SizedBox(width: 10),
                                                 Text(
@@ -1072,7 +1089,8 @@ class _ViewerViewState extends State<ViewerView>
                                                 Container(
                                                   width: 1,
                                                   height: 12,
-                                                  color: context.wireframeCyanDim,
+                                                  color:
+                                                      context.wireframeCyanDim,
                                                 ),
                                                 const SizedBox(width: 10),
                                                 Text(
@@ -1121,7 +1139,8 @@ class _ViewerViewState extends State<ViewerView>
                       ),
                     ),
                   ),
-                );
+                ),
+              );
             },
           ),
         );
@@ -1196,66 +1215,100 @@ class _ViewerViewState extends State<ViewerView>
                         1: FlexColumnWidth(),
                       },
                       children: const [
-                        TableRow(children: [
-                          _HelpKey('1 / 2 / 3 / 4'),
-                          _HelpDesc('Normal / ELA / ASCII / Strings Mode'),
-                        ]),
-                        TableRow(children: [
-                          _HelpKey('SPACE / →'),
-                          _HelpDesc('Next image in playlist'),
-                        ]),
-                        TableRow(children: [
-                          _HelpKey('BACKSPACE / ←'),
-                          _HelpDesc('Previous image in playlist'),
-                        ]),
-                        TableRow(children: [
-                          _HelpKey('0 / R'),
-                          _HelpDesc('Toggle Fit to window / 100% Actual Scale'),
-                        ]),
-                        TableRow(children: [
-                          _HelpKey('CTRL + SCROLL'),
-                          _HelpDesc('Focal-point Zoom (0.02x - 50x)'),
-                        ]),
-                        TableRow(children: [
-                          _HelpKey('DOUBLE CLICK'),
-                          _HelpDesc('Toggle 100% Actual Scale'),
-                        ]),
-                        TableRow(children: [
-                          _HelpKey('MIDDLE CLICK'),
-                          _HelpDesc('Reset Viewport Zoom & Pan'),
-                        ]),
-                        TableRow(children: [
-                          _HelpKey('O'),
-                          _HelpDesc('Open Single Image File'),
-                        ]),
-                        TableRow(children: [
-                          _HelpKey('CTRL + O'),
-                          _HelpDesc('Open Directory / Playlist'),
-                        ]),
-                        TableRow(children: [
-                          _HelpKey('ALT + O'),
-                          _HelpDesc('Open Specific Path (Direct Entry)'),
-                        ]),
-                        TableRow(children: [
-                          _HelpKey('CTRL + C'),
-                          _HelpDesc('Contextual Copy (Image / ELA / ASCII / Strings)'),
-                        ]),
-                        TableRow(children: [
-                          _HelpKey('CTRL + V'),
-                          _HelpDesc('Paste Image from System Clipboard'),
-                        ]),
-                        TableRow(children: [
-                          _HelpKey('M'),
-                          _HelpDesc('Open Retro Bottom Menu Console'),
-                        ]),
-                        TableRow(children: [
-                          _HelpKey('H'),
-                          _HelpDesc('Open Command Reference (Help)'),
-                        ]),
-                        TableRow(children: [
-                          _HelpKey('ESC'),
-                          _HelpDesc('Close Dialog / Exit Station'),
-                        ]),
+                        TableRow(
+                          children: [
+                            _HelpKey('1 / 2 / 3 / 4'),
+                            _HelpDesc('Normal / ELA / ASCII / Strings Mode'),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
+                            _HelpKey('SPACE / →'),
+                            _HelpDesc('Next image in playlist'),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
+                            _HelpKey('BACKSPACE / ←'),
+                            _HelpDesc('Previous image in playlist'),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
+                            _HelpKey('0 / R'),
+                            _HelpDesc(
+                              'Toggle Fit to window / 100% Actual Scale',
+                            ),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
+                            _HelpKey('CTRL + SCROLL'),
+                            _HelpDesc('Focal-point Zoom (0.02x - 50x)'),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
+                            _HelpKey('DOUBLE CLICK'),
+                            _HelpDesc('Toggle 100% Actual Scale'),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
+                            _HelpKey('MIDDLE CLICK'),
+                            _HelpDesc('Reset Viewport Zoom & Pan'),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
+                            _HelpKey('O'),
+                            _HelpDesc('Open Single Image File'),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
+                            _HelpKey('CTRL + O'),
+                            _HelpDesc('Open Directory / Playlist'),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
+                            _HelpKey('ALT + O'),
+                            _HelpDesc('Open Specific Path (Direct Entry)'),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
+                            _HelpKey('CTRL + C'),
+                            _HelpDesc(
+                              'Contextual Copy (Image / ELA / ASCII / Strings)',
+                            ),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
+                            _HelpKey('CTRL + V'),
+                            _HelpDesc('Paste Image from System Clipboard'),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
+                            _HelpKey('M'),
+                            _HelpDesc('Open Retro Bottom Menu Console'),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
+                            _HelpKey('H'),
+                            _HelpDesc('Open Command Reference (Help)'),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
+                            _HelpKey('ESC'),
+                            _HelpDesc('Close Dialog / Exit Station'),
+                          ],
+                        ),
                       ],
                     ),
                   ),

@@ -41,18 +41,18 @@ class _RetroButtonState extends State<RetroButton> {
         : AppTheme.xCopySteelLight;
     final activeBorder = enabled
         ? (_isHovered
-            ? Colors.white
-            : (widget.isSelected
-                ? Colors.white
-                : (widget.borderColor ?? context.wireframeCyan)))
+              ? Colors.white
+              : (widget.isSelected
+                    ? Colors.white
+                    : (widget.borderColor ?? context.wireframeCyan)))
         : AppTheme.xCopySteelDark;
     final activeBg = widget.isSelected
         ? widget.textColor
         : (_isPressed
-            ? AppTheme.xCopySteel
-            : (_isHovered
-                ? AppTheme.xCopySteel.withValues(alpha: 0.5)
-                : AppTheme.xCopyCrtBlack));
+              ? AppTheme.xCopySteel
+              : (_isHovered
+                    ? AppTheme.xCopySteel.withValues(alpha: 0.5)
+                    : Colors.transparent));
 
     return MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
@@ -64,7 +64,8 @@ class _RetroButtonState extends State<RetroButton> {
         onTapCancel: enabled ? () => setState(() => _isPressed = false) : null,
         onTap: widget.onPressed,
         child: Container(
-          padding: widget.padding ??
+          padding:
+              widget.padding ??
               const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: activeBg,

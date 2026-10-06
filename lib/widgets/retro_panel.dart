@@ -35,7 +35,7 @@ class RetroPanel extends StatelessWidget {
     switch (style) {
       case RetroPanelStyle.cyanWireframe:
         decoration = BoxDecoration(
-          color: backgroundColor ?? AppTheme.xCopyCrtBlack,
+          color: backgroundColor ?? AppTheme.xCopyCrtBlack.withValues(alpha: 0.80),
           border: Border.all(
             color: borderColor ?? context.wireframeCyan,
             width: borderWidth,

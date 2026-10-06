@@ -35,7 +35,7 @@ class RetroStatusBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: AppTheme.xCopyCrtBlack,
+        color: Colors.transparent,
         border: Border.all(color: context.wireframeCyan, width: 1.0),
       ),
       child: LayoutBuilder(
