@@ -4,8 +4,8 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../controllers/crunch_state_controller.dart';
 import '../controllers/image_controller.dart';
-import '../services/rust_image_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/clipboard_helper.dart';
 import '../utils/file_dialog_helper.dart';
@@ -15,8 +15,6 @@ import '../widgets/retro_button.dart';
 import '../widgets/retro_led.dart';
 import '../widgets/retro_panel.dart';
 import '../widgets/retro_status_bar.dart';
-
-enum ViewMode { normal, ela, ascii, strings }
 
 class ViewerView extends StatefulWidget {
   final ImageController controller;
@@ -31,28 +29,22 @@ class _ViewerViewState extends State<ViewerView> {
   final TransformationController _transformController =
       TransformationController();
   final FocusNode _focusNode = FocusNode();
-  ViewMode _activeMode = ViewMode.normal;
+  late final CrunchStateController _crunchController = CrunchStateController(
+    strMinLen: 6,
+  );
+
   double _currentScale = 1.0;
-  Uint8List? _elaBytes;
-  bool _isProcessingEla = false;
-  String? _elaError;
-  String? _asciiText;
-  bool _isProcessingAscii = false;
-  String? _asciiError;
-  String? _extractedStrings;
-  bool _isProcessingStrings = false;
-  String? _stringsError;
   Size? _naturalSize;
   Size? _lastViewportSize;
   bool _isDragging = false;
-
-  final int _strMinLen = 6;
 
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_onImageChange);
     _transformController.addListener(_onTransformChange);
+    _crunchController.addListener(_onCrunchStateChange);
+    _crunchController.onImageChanged(widget.controller.currentPath);
     _loadCurrentDimensions();
   }
 
@@ -61,8 +53,14 @@ class _ViewerViewState extends State<ViewerView> {
     widget.controller.removeListener(_onImageChange);
     _transformController.removeListener(_onTransformChange);
     _transformController.dispose();
+    _crunchController.removeListener(_onCrunchStateChange);
+    _crunchController.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  void _onCrunchStateChange() {
+    if (mounted) setState(() {});
   }
 
   void _loadCurrentDimensions() {
@@ -82,109 +80,9 @@ class _ViewerViewState extends State<ViewerView> {
   }
 
   void _onImageChange() {
-    _elaBytes = null;
-    _elaError = null;
-    _asciiText = null;
-    _asciiError = null;
-    _extractedStrings = null;
-    _stringsError = null;
     _naturalSize = null;
-    setState(() {});
-
+    _crunchController.onImageChanged(widget.controller.currentPath);
     _loadCurrentDimensions();
-
-    if (_activeMode == ViewMode.ela) {
-      _generateEla();
-    } else if (_activeMode == ViewMode.ascii) {
-      _generateAscii();
-    } else if (_activeMode == ViewMode.strings) {
-      _generateStrings();
-    }
-  }
-
-  Future<void> _generateEla() async {
-    final path = widget.controller.currentPath;
-    if (path == null) return;
-    setState(() {
-      _isProcessingEla = true;
-      _elaError = null;
-    });
-    try {
-      final result = await RustImageService.instance.generateElaFromFile(
-        path,
-        scale: 25,
-      );
-      if (mounted) {
-        setState(() {
-          _elaBytes = result;
-          _isProcessingEla = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _elaError = e.toString();
-          _isProcessingEla = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _generateAscii() async {
-    final path = widget.controller.currentPath;
-    if (path == null) return;
-    setState(() {
-      _isProcessingAscii = true;
-      _asciiError = null;
-    });
-    try {
-      final result = await RustImageService.instance.convertToAsciiFromFile(
-        path,
-        targetWidth: 120,
-        charAspect: 0.7,
-      );
-      if (mounted) {
-        setState(() {
-          _asciiText = result;
-          _isProcessingAscii = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _asciiError = e.toString();
-          _isProcessingAscii = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _generateStrings() async {
-    final path = widget.controller.currentPath;
-    if (path == null) return;
-    setState(() {
-      _isProcessingStrings = true;
-      _stringsError = null;
-    });
-    try {
-      final result = await RustImageService.instance.extractStringsFromFile(
-        path,
-        minLen: _strMinLen,
-      );
-      if (mounted) {
-        setState(() {
-          _extractedStrings = result;
-          _isProcessingStrings = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _stringsError = e.toString();
-          _isProcessingStrings = false;
-        });
-      }
-    }
   }
 
   void _onTransformChange() {
@@ -229,35 +127,12 @@ class _ViewerViewState extends State<ViewerView> {
     }
   }
 
-  Future<void> _copyImageToClipboard() async {
-    final path = widget.controller.currentPath;
-    if (path == null) return;
-    try {
-      final Uint8List bytes;
-      if (_activeMode == ViewMode.ela && _elaBytes != null) {
-        bytes = _elaBytes!;
-      } else {
-        bytes = await File(path).readAsBytes();
-      }
-
-      final success = await ClipboardHelper.copyImageBytes(bytes);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            success
-                ? 'Image copied to clipboard! (PNG)'
-                : 'Failed to copy to clipboard',
-          ),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to copy image: $e')));
-    }
+  Future<void> _copyContent() async {
+    final message = await _crunchController.copyActiveContent();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+    );
   }
 
   Future<void> _pasteImageFromClipboard() async {
@@ -293,18 +168,8 @@ class _ViewerViewState extends State<ViewerView> {
     }
   }
 
-  String _getStatusMessage(ImageController c) {
-    if (_isProcessingEla) return 'CRUNCHING ELA IN RUST (SCALE: 25x)...';
-    if (_isProcessingAscii) return 'CRUNCHING ASCII IN RUST (120 COLS)...';
-    if (_isProcessingStrings) {
-      return 'EXTRACTING STRINGS IN RUST (MIN_LEN: $_strMinLen)...';
-    }
-    if (_elaError != null) return 'ELA ERROR: $_elaError';
-    if (_asciiError != null) return 'ASCII ERROR: $_asciiError';
-    if (_stringsError != null) return 'STRINGS ERROR: $_stringsError';
-    if (c.hasImages) return 'Operation done.';
-    return 'CRUNCH ENGINE READY. PRESS (O) TO LOAD.';
-  }
+  String _getStatusMessage(ImageController c) =>
+      _crunchController.getStatusMessage(c.hasImages);
 
   void _showMenu() {
     showModalBottomSheet(
@@ -430,9 +295,9 @@ class _ViewerViewState extends State<ViewerView> {
                 label: 'NORMAL',
                 shortcut: '1',
                 textColor: AppTheme.xCopyCyan,
-                isSelected: _activeMode == ViewMode.normal,
+                isSelected: _crunchController.activeMode == ViewMode.normal,
                 onPressed: () {
-                  setState(() => _activeMode = ViewMode.normal);
+                  _crunchController.setMode(ViewMode.normal);
                   Navigator.of(ctx).pop();
                 },
               ),
@@ -441,11 +306,10 @@ class _ViewerViewState extends State<ViewerView> {
                 label: 'ELA FORENSICS',
                 shortcut: '2',
                 textColor: AppTheme.xCopyAmber,
-                isSelected: _activeMode == ViewMode.ela,
+                isSelected: _crunchController.activeMode == ViewMode.ela,
                 onPressed: () {
-                  setState(() => _activeMode = ViewMode.ela);
+                  _crunchController.setMode(ViewMode.ela);
                   Navigator.of(ctx).pop();
-                  if (_elaBytes == null) _generateEla();
                 },
               ),
               const SizedBox(width: 8),
@@ -453,11 +317,10 @@ class _ViewerViewState extends State<ViewerView> {
                 label: 'ASCII MATRIX',
                 shortcut: '3',
                 textColor: AppTheme.xCopyGreen,
-                isSelected: _activeMode == ViewMode.ascii,
+                isSelected: _crunchController.activeMode == ViewMode.ascii,
                 onPressed: () {
-                  setState(() => _activeMode = ViewMode.ascii);
+                  _crunchController.setMode(ViewMode.ascii);
                   Navigator.of(ctx).pop();
-                  if (_asciiText == null) _generateAscii();
                 },
               ),
               const SizedBox(width: 8),
@@ -465,11 +328,10 @@ class _ViewerViewState extends State<ViewerView> {
                 label: 'STRINGS',
                 shortcut: '4',
                 textColor: AppTheme.xCopyAmber,
-                isSelected: _activeMode == ViewMode.strings,
+                isSelected: _crunchController.activeMode == ViewMode.strings,
                 onPressed: () {
-                  setState(() => _activeMode = ViewMode.strings);
+                  _crunchController.setMode(ViewMode.strings);
                   Navigator.of(ctx).pop();
-                  if (_extractedStrings == null) _generateStrings();
                 },
               ),
             ],
@@ -526,7 +388,7 @@ class _ViewerViewState extends State<ViewerView> {
                 onPressed: c.hasImages
                     ? () {
                         Navigator.of(ctx).pop();
-                        _copyImageToClipboard();
+                        _copyContent();
                       }
                     : null,
               ),
@@ -578,130 +440,135 @@ class _ViewerViewState extends State<ViewerView> {
     final path = widget.controller.currentPath;
     if (path == null) return const SizedBox.shrink();
 
-    if (_isProcessingStrings) {
-      return const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(color: AppTheme.xCopyAmber),
-            SizedBox(height: 16),
-            Text(
-              'EXTRACTING PRINTABLE STRINGS (RUST)...',
-              style: TextStyle(
-                fontFamily: 'monospace',
-                color: AppTheme.xCopyAmber,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2,
+    final state = _crunchController.stringsState;
+    switch (state) {
+      case PipelineProcessing(:final statusMessage):
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: AppTheme.xCopyAmber),
+              const SizedBox(height: 16),
+              Text(
+                statusMessage,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  color: AppTheme.xCopyAmber,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
               ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (_stringsError != null) {
-      return Center(
-        child: Text(
-          'STRINGS ERROR:\n$_stringsError',
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontFamily: 'monospace',
-            color: AppTheme.xCopyRed,
+            ],
           ),
-        ),
-      );
-    }
+        );
 
-    final rawStrings = _extractedStrings ?? '';
-    final lines = rawStrings.trim().isEmpty
-        ? <String>[]
-        : rawStrings.trim().split('\n');
+      case PipelineError(:final message):
+        return Center(
+          child: Text(
+            'STRINGS ERROR:\n$message',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'monospace',
+              color: AppTheme.xCopyRed,
+            ),
+          ),
+        );
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 56, 16, 36),
-      child: RetroPanel(
-        style: RetroPanelStyle.sunkenCrt,
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
+      case PipelineIdle():
+        return const SizedBox.shrink();
+
+      case PipelineReady(:final data):
+        final rawStrings = data;
+        final lines = rawStrings.trim().isEmpty
+            ? <String>[]
+            : rawStrings.trim().split('\n');
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 56, 16, 36),
+          child: RetroPanel(
+            style: RetroPanelStyle.sunkenCrt,
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const RetroLed(
-                  isActive: true,
-                  activeColor: AppTheme.xCopyGreen,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'FORENSIC STRINGS EXTRACTION (MIN_LEN: $_strMinLen) // ${lines.length} ENTRIES',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.xCopyGreen,
-                      letterSpacing: 1.0,
+                Row(
+                  children: [
+                    const RetroLed(
+                      isActive: true,
+                      activeColor: AppTheme.xCopyGreen,
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                RetroButton(
-                  icon: Icons.copy_rounded,
-                  label: 'COPY ALL',
-                  fontSize: 10,
-                  textColor: AppTheme.xCopyAmber,
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: rawStrings));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'All extracted strings copied to clipboard!',
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'FORENSIC STRINGS EXTRACTION (MIN_LEN: ${_crunchController.strMinLen}) // ${lines.length} ENTRIES',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.xCopyGreen,
+                          letterSpacing: 1.0,
                         ),
-                        duration: Duration(seconds: 2),
                       ),
-                    );
-                  },
+                    ),
+                    const SizedBox(width: 12),
+                    RetroButton(
+                      icon: Icons.copy_rounded,
+                      label: 'COPY ALL',
+                      fontSize: 10,
+                      textColor: AppTheme.xCopyAmber,
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: rawStrings));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'All extracted strings copied to clipboard!',
+                            ),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Divider(color: AppTheme.xCopyCyanDim, height: 1),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: lines.isEmpty
+                      ? Center(
+                          child: Text(
+                            'NO PRINTABLE ASCII STRINGS >= ${_crunchController.strMinLen} CHARACTERS FOUND',
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              color: AppTheme.xCopyCyanDim,
+                            ),
+                          ),
+                        )
+                      : Scrollbar(
+                          thumbVisibility: true,
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.vertical,
+                            primary: true,
+                            child: SelectableText(
+                              rawStrings,
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 12,
+                                height: 1.35,
+                                letterSpacing: 0.5,
+                                color: AppTheme.xCopyGreen,
+                              ),
+                            ),
+                          ),
+                        ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            const Divider(color: AppTheme.xCopyCyanDim, height: 1),
-            const SizedBox(height: 8),
-            Expanded(
-              child: lines.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'NO PRINTABLE ASCII STRINGS >= 8 CHARACTERS FOUND',
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          color: AppTheme.xCopyCyanDim,
-                        ),
-                      ),
-                    )
-                  : Scrollbar(
-                      thumbVisibility: true,
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.vertical,
-                        primary: true,
-                        child: SelectableText(
-                          rawStrings,
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 12,
-                            height: 1.35,
-                            letterSpacing: 0.5,
-                            color: AppTheme.xCopyGreen,
-                          ),
-                        ),
-                      ),
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
+          ),
+        );
+    }
   }
 
   Widget _buildImageCanvas() {
@@ -742,7 +609,7 @@ class _ViewerViewState extends State<ViewerView> {
       );
     }
 
-    if (_activeMode == ViewMode.strings) {
+    if (_crunchController.activeMode == ViewMode.strings) {
       return _buildStringsCanvas();
     }
 
@@ -781,134 +648,125 @@ class _ViewerViewState extends State<ViewerView> {
           );
         }
 
-        Widget content = SizedBox(
-          width: _naturalSize!.width,
-          height: _naturalSize!.height,
-          child: Image.file(
-            File(path),
-            fit: BoxFit.fill,
-            filterQuality: FilterQuality.none,
-            errorBuilder: (context, error, stackTrace) => Center(
-              child: Text(
-                'Failed to load image:\n$error',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  color: AppTheme.xCopyRed,
-                ),
-              ),
-            ),
-          ),
-        );
-
-        if (_activeMode == ViewMode.ela) {
-          if (_isProcessingEla) {
+        Widget content;
+        switch (_crunchController.activeMode) {
+          case ViewMode.normal:
             content = SizedBox(
               width: _naturalSize!.width,
               height: _naturalSize!.height,
-              child: const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(color: AppTheme.xCopyAmber),
-                    SizedBox(height: 16),
-                    Text(
-                      'CRUNCHING ELA IN RUST...',
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        color: AppTheme.xCopyAmber,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          } else if (_elaError != null) {
-            content = SizedBox(
-              width: _naturalSize!.width,
-              height: _naturalSize!.height,
-              child: Center(
-                child: Text(
-                  'ELA Error:\n$_elaError',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    color: AppTheme.xCopyRed,
-                  ),
-                ),
-              ),
-            );
-          } else if (_elaBytes != null) {
-            content = SizedBox(
-              width: _naturalSize!.width,
-              height: _naturalSize!.height,
-              child: Image.memory(
-                _elaBytes!,
+              child: Image.file(
+                File(path),
                 fit: BoxFit.fill,
                 filterQuality: FilterQuality.none,
-              ),
-            );
-          }
-        } else if (_activeMode == ViewMode.ascii) {
-          if (_isProcessingAscii) {
-            content = SizedBox(
-              width: _naturalSize!.width,
-              height: _naturalSize!.height,
-              child: const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(color: AppTheme.xCopyGreen),
-                    SizedBox(height: 16),
-                    Text(
-                      'CRUNCHING ASCII IN RUST...',
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        color: AppTheme.xCopyGreen,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          } else if (_asciiError != null) {
-            content = SizedBox(
-              width: _naturalSize!.width,
-              height: _naturalSize!.height,
-              child: Center(
-                child: Text(
-                  'ASCII Error:\n$_asciiError',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    color: AppTheme.xCopyRed,
-                  ),
-                ),
-              ),
-            );
-          } else if (_asciiText != null) {
-            content = SizedBox(
-              width: _naturalSize!.width,
-              height: _naturalSize!.height,
-              child: Center(
-                child: FittedBox(
-                  fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => Center(
                   child: Text(
-                    _asciiText!,
+                    'Failed to load image:\n$error',
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontFamily: 'monospace',
-                      fontSize: 10,
-                      height: 0.9,
-                      letterSpacing: 0.8,
-                      color: AppTheme.xCopyGreen,
+                      color: AppTheme.xCopyRed,
                     ),
                   ),
                 ),
               ),
             );
-          }
+
+          case ViewMode.ela:
+            content = SizedBox(
+              width: _naturalSize!.width,
+              height: _naturalSize!.height,
+              child: switch (_crunchController.elaState) {
+                PipelineProcessing(:final statusMessage) => Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(
+                        color: AppTheme.xCopyAmber,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        statusMessage,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          color: AppTheme.xCopyAmber,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                PipelineError(:final message) => Center(
+                  child: Text(
+                    'ELA Error:\n$message',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      color: AppTheme.xCopyRed,
+                    ),
+                  ),
+                ),
+                PipelineReady<Uint8List>(:final data) => Image.memory(
+                  data,
+                  fit: BoxFit.fill,
+                  filterQuality: FilterQuality.none,
+                ),
+                PipelineIdle() => const SizedBox.shrink(),
+              },
+            );
+
+          case ViewMode.ascii:
+            content = SizedBox(
+              width: _naturalSize!.width,
+              height: _naturalSize!.height,
+              child: switch (_crunchController.asciiState) {
+                PipelineProcessing(:final statusMessage) => Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(color: AppTheme.xCopyGreen),
+                      SizedBox(height: 16),
+                      Text(
+                        statusMessage,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          color: AppTheme.xCopyGreen,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                PipelineError(:final message) => Center(
+                  child: Text(
+                    'ASCII Error:\n$message',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      color: AppTheme.xCopyRed,
+                    ),
+                  ),
+                ),
+                PipelineReady<String>(:final data) => Center(
+                  child: FittedBox(
+                    fit: BoxFit.contain,
+                    child: Text(
+                      data,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 10,
+                        height: 0.9,
+                        letterSpacing: 0.8,
+                        color: AppTheme.xCopyGreen,
+                      ),
+                    ),
+                  ),
+                ),
+                PipelineIdle() => const SizedBox.shrink(),
+              },
+            );
+
+          case ViewMode.strings:
+            content = const SizedBox.shrink();
         }
 
         final interactive = InteractiveViewer(
@@ -970,19 +828,13 @@ class _ViewerViewState extends State<ViewerView> {
         const SingleActivator(LogicalKeyboardKey.digit0): _resetTransform,
         const SingleActivator(LogicalKeyboardKey.keyR): _resetTransform,
         const SingleActivator(LogicalKeyboardKey.digit1): () =>
-            setState(() => _activeMode = ViewMode.normal),
-        const SingleActivator(LogicalKeyboardKey.digit2): () {
-          setState(() => _activeMode = ViewMode.ela);
-          if (_elaBytes == null) _generateEla();
-        },
-        const SingleActivator(LogicalKeyboardKey.digit3): () {
-          setState(() => _activeMode = ViewMode.ascii);
-          if (_asciiText == null) _generateAscii();
-        },
-        const SingleActivator(LogicalKeyboardKey.digit4): () {
-          setState(() => _activeMode = ViewMode.strings);
-          if (_extractedStrings == null) _generateStrings();
-        },
+            _crunchController.setMode(ViewMode.normal),
+        const SingleActivator(LogicalKeyboardKey.digit2): () =>
+            _crunchController.setMode(ViewMode.ela),
+        const SingleActivator(LogicalKeyboardKey.digit3): () =>
+            _crunchController.setMode(ViewMode.ascii),
+        const SingleActivator(LogicalKeyboardKey.digit4): () =>
+            _crunchController.setMode(ViewMode.strings),
         const SingleActivator(LogicalKeyboardKey.keyM): _showMenu,
         const SingleActivator(LogicalKeyboardKey.keyO): _pickImageFile,
         const SingleActivator(LogicalKeyboardKey.keyO, control: true):
@@ -990,7 +842,7 @@ class _ViewerViewState extends State<ViewerView> {
         const SingleActivator(LogicalKeyboardKey.keyO, alt: true):
             _showOpenPathDialog,
         const SingleActivator(LogicalKeyboardKey.keyC, control: true):
-            _copyImageToClipboard,
+            _copyContent,
         const SingleActivator(LogicalKeyboardKey.keyV, control: true):
             _pasteImageFromClipboard,
       },
@@ -1067,17 +919,19 @@ class _ViewerViewState extends State<ViewerView> {
                           RetroLed(
                             isActive: true,
                             size: 7,
-                            activeColor: _modeColor(_activeMode),
+                            activeColor: _modeColor(
+                              _crunchController.activeMode,
+                            ),
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            _activeMode.name.toUpperCase(),
+                            _crunchController.activeMode.name.toUpperCase(),
                             style: TextStyle(
                               fontFamily: 'monospace',
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1.2,
-                              color: _modeColor(_activeMode),
+                              color: _modeColor(_crunchController.activeMode),
                             ),
                           ),
                           const SizedBox(width: 10),
