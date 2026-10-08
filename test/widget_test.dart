@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:imgcrunch/controllers/image_controller.dart';
 import 'package:imgcrunch/main.dart';
+import 'package:imgcrunch/widgets/amiga_copper_background.dart';
 import 'package:imgcrunch/widgets/retro_status_bar.dart';
 
 void main() {
@@ -55,5 +56,15 @@ void main() {
 
     expect(find.text('1920x1080'), findsOneWidget);
     expect(find.text('RES: '), findsOneWidget);
+  });
+
+  testWidgets('ViewerView AmigaCopperBackground reflects processing state', (tester) async {
+    final controller = ImageController();
+    await tester.pumpWidget(ImgCrunchApp(controller: controller));
+
+    final bgFinder = find.byType(AmigaCopperBackground);
+    expect(bgFinder, findsOneWidget);
+    final AmigaCopperBackground initialBg = tester.widget(bgFinder);
+    expect(initialBg.isProcessing, isFalse);
   });
 }

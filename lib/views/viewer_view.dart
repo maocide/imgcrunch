@@ -15,6 +15,7 @@ import '../widgets/amiga_copper_background.dart';
 import '../widgets/proximity_fab.dart';
 import '../widgets/retro_button.dart';
 import '../widgets/retro_led.dart';
+import '../widgets/retro_floppy_disk.dart';
 import '../widgets/retro_panel.dart';
 import '../widgets/retro_status_bar.dart';
 
@@ -28,24 +29,13 @@ class ViewerView extends StatefulWidget {
   State<ViewerView> createState() => _ViewerViewState();
 }
 
-class _ViewerViewState extends State<ViewerView>
-    with SingleTickerProviderStateMixin {
+class _ViewerViewState extends State<ViewerView> {
   final TransformationController _transformController =
       TransformationController();
   final FocusNode _focusNode = FocusNode();
   late final CrunchStateController _crunchController = CrunchStateController(
     strMinLen: 6,
   );
-
-  late final AnimationController _borderAnimationController =
-      AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 250),
-      );
-  late final Animation<Color?> _borderColorAnimation = ColorTween(
-    begin: AppTheme.xCopyCyan,
-    end: AppTheme.xCopyAmber,
-  ).animate(_borderAnimationController);
 
   Timer? _hudHideTimer;
   bool _isHudVisible = true;
@@ -72,7 +62,6 @@ class _ViewerViewState extends State<ViewerView>
   @override
   void dispose() {
     _hudHideTimer?.cancel();
-    _borderAnimationController.dispose();
     widget.controller.removeListener(_onImageChange);
     _transformController.removeListener(_onTransformChange);
     _transformController.dispose();
@@ -96,16 +85,6 @@ class _ViewerViewState extends State<ViewerView>
 
   void _onCrunchStateChange() {
     if (!mounted) return;
-    if (_crunchController.activeState is PipelineProcessing) {
-      if (!_borderAnimationController.isAnimating) {
-        _borderAnimationController.repeat(reverse: true);
-      }
-    } else {
-      if (_borderAnimationController.isAnimating) {
-        _borderAnimationController.stop();
-        _borderAnimationController.reset();
-      }
-    }
     _bumpHud();
     setState(() {});
   }
@@ -127,7 +106,9 @@ class _ViewerViewState extends State<ViewerView>
   }
 
   void _onImageChange() {
-    _naturalSize = null;
+    setState(() {
+      _naturalSize = null;
+    });
     _crunchController.onImageChanged(widget.controller.currentPath);
     _loadCurrentDimensions();
     _bumpHud();
@@ -656,17 +637,13 @@ class _ViewerViewState extends State<ViewerView>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.image_search_rounded,
-              size: 64,
-              color: AppTheme.xCopyCyanDim,
-            ),
-            const SizedBox(height: 16),
+            const RetroFloppyDisk(size: 110),
+            const SizedBox(height: 20),
             const Text(
               'NO IMAGE LOADED',
               style: TextStyle(
                 fontFamily: 'monospace',
-                fontSize: 16,
+                fontSize: 15,
                 color: AppTheme.xCopyCyan,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.5,
@@ -674,7 +651,7 @@ class _ViewerViewState extends State<ViewerView>
             ),
             const SizedBox(height: 8),
             const Text(
-              'PRESS (O) OR CLICK MENU TO LOAD FILE/FOLDER',
+              'DF0: INSERT MEDIA // PRESS (O) OR DRAG & DROP',
               style: TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 11,
@@ -721,13 +698,7 @@ class _ViewerViewState extends State<ViewerView>
         }
 
         if (_naturalSize == null) {
-          return const Center(
-            child: RetroLed(
-              isActive: true,
-              activeColor: AppTheme.xCopyCyan,
-              size: 12,
-            ),
-          );
+          return const SizedBox.shrink();
         }
 
         Widget content;
@@ -790,21 +761,11 @@ class _ViewerViewState extends State<ViewerView>
           case ViewMode.ascii:
             final asciiState = _crunchController.asciiState;
             Widget asciiBody;
-            if (asciiState case PipelineReady<String>(:final data)) {
-              asciiBody = Center(
-                child: FittedBox(
-                  fit: BoxFit.contain,
-                  child: Text(
-                    data,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 10,
-                      height: 0.9,
-                      letterSpacing: 0.8,
-                      color: AppTheme.xCopyGreen,
-                    ),
-                  ),
-                ),
+            if (asciiState case PipelineReady<AsciiCrunchResult>(:final data)) {
+              asciiBody = Image.memory(
+                data.imageBytes,
+                fit: BoxFit.fill,
+                filterQuality: FilterQuality.medium,
               );
             } else if (asciiState case PipelineError(:final message)) {
               asciiBody = Center(
@@ -884,267 +845,236 @@ class _ViewerViewState extends State<ViewerView>
   @override
   Widget build(BuildContext context) {
     final c = widget.controller;
+    final isNormalLoading =
+        _crunchController.activeMode == ViewMode.normal &&
+        c.hasImages &&
+        _naturalSize == null;
+    final isProcessing =
+        isNormalLoading ||
+        (_crunchController.activeState is PipelineProcessing);
 
-    return AnimatedBuilder(
-      animation: _borderAnimationController,
-      builder: (context, _) {
-        final isProcessing =
-            _crunchController.activeState is PipelineProcessing;
-        final activePrimary = isProcessing
-            ? (_borderColorAnimation.value ?? AppTheme.xCopyAmber)
-            : AppTheme.xCopyCyan;
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): _handleEscape,
+        const SingleActivator(LogicalKeyboardKey.keyH): _showHelpDialog,
+        const SingleActivator(LogicalKeyboardKey.arrowRight): () {
+          _bumpHud();
+          c.next();
+        },
+        const SingleActivator(LogicalKeyboardKey.space): () {
+          _bumpHud();
+          c.next();
+        },
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): () {
+          _bumpHud();
+          c.previous();
+        },
+        const SingleActivator(LogicalKeyboardKey.backspace): () {
+          _bumpHud();
+          c.previous();
+        },
+        const SingleActivator(LogicalKeyboardKey.digit0): _resetTransform,
+        const SingleActivator(LogicalKeyboardKey.keyR): _resetTransform,
+        const SingleActivator(LogicalKeyboardKey.digit1): () {
+          _bumpHud();
+          _crunchController.setMode(ViewMode.normal);
+        },
+        const SingleActivator(LogicalKeyboardKey.digit2): () {
+          _bumpHud();
+          _crunchController.setMode(ViewMode.ela);
+        },
+        const SingleActivator(LogicalKeyboardKey.digit3): () {
+          _bumpHud();
+          _crunchController.setMode(ViewMode.ascii);
+        },
+        const SingleActivator(LogicalKeyboardKey.digit4): () {
+          _bumpHud();
+          _crunchController.setMode(ViewMode.strings);
+        },
+        const SingleActivator(LogicalKeyboardKey.keyM): _showMenu,
+        const SingleActivator(LogicalKeyboardKey.keyO): _pickImageFile,
+        const SingleActivator(LogicalKeyboardKey.keyO, control: true):
+            _pickImageFile,
+        const SingleActivator(LogicalKeyboardKey.keyO, alt: true):
+            _showOpenPathDialog,
+        const SingleActivator(LogicalKeyboardKey.keyC, control: true):
+            _copyContent,
+        const SingleActivator(LogicalKeyboardKey.keyV, control: true):
+            _pasteImageFromClipboard,
+      },
+      child: Focus(
+        focusNode: _focusNode,
+        autofocus: true,
+        child: DropTarget(
+          onDragEntered: (_) => setState(() => _isDragging = true),
+          onDragExited: (_) => setState(() => _isDragging = false),
+          onDragDone: (detail) {
+            setState(() => _isDragging = false);
+            if (detail.files.isNotEmpty) {
+              widget.controller.loadPath(detail.files.first.path);
+            }
+          },
+          child: AmigaCopperBackground(
+            isProcessing: isProcessing,
+            mode: _crunchController.activeMode,
+            child: Scaffold(
+              backgroundColor: Colors.transparent,
+              body: Column(
+                children: [
+                  // Canvas Viewport Area
+                  Expanded(
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // Main edge-to-edge canvas
+                        _buildImageCanvas(),
 
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(
-              context,
-            ).colorScheme.copyWith(primary: activePrimary),
-          ),
-          child: Builder(
-            builder: (context) {
-              return CallbackShortcuts(
-                bindings: {
-                  const SingleActivator(LogicalKeyboardKey.escape):
-                      _handleEscape,
-                  const SingleActivator(LogicalKeyboardKey.keyH):
-                      _showHelpDialog,
-                  const SingleActivator(LogicalKeyboardKey.arrowRight): () {
-                    _bumpHud();
-                    c.next();
-                  },
-                  const SingleActivator(LogicalKeyboardKey.space): () {
-                    _bumpHud();
-                    c.next();
-                  },
-                  const SingleActivator(LogicalKeyboardKey.arrowLeft): () {
-                    _bumpHud();
-                    c.previous();
-                  },
-                  const SingleActivator(LogicalKeyboardKey.backspace): () {
-                    _bumpHud();
-                    c.previous();
-                  },
-                  const SingleActivator(LogicalKeyboardKey.digit0):
-                      _resetTransform,
-                  const SingleActivator(LogicalKeyboardKey.keyR):
-                      _resetTransform,
-                  const SingleActivator(LogicalKeyboardKey.digit1): () {
-                    _bumpHud();
-                    _crunchController.setMode(ViewMode.normal);
-                  },
-                  const SingleActivator(LogicalKeyboardKey.digit2): () {
-                    _bumpHud();
-                    _crunchController.setMode(ViewMode.ela);
-                  },
-                  const SingleActivator(LogicalKeyboardKey.digit3): () {
-                    _bumpHud();
-                    _crunchController.setMode(ViewMode.ascii);
-                  },
-                  const SingleActivator(LogicalKeyboardKey.digit4): () {
-                    _bumpHud();
-                    _crunchController.setMode(ViewMode.strings);
-                  },
-                  const SingleActivator(LogicalKeyboardKey.keyM): _showMenu,
-                  const SingleActivator(LogicalKeyboardKey.keyO):
-                      _pickImageFile,
-                  const SingleActivator(LogicalKeyboardKey.keyO, control: true):
-                      _pickImageFile,
-                  const SingleActivator(LogicalKeyboardKey.keyO, alt: true):
-                      _showOpenPathDialog,
-                  const SingleActivator(LogicalKeyboardKey.keyC, control: true):
-                      _copyContent,
-                  const SingleActivator(LogicalKeyboardKey.keyV, control: true):
-                      _pasteImageFromClipboard,
-                },
-                child: Focus(
-                  focusNode: _focusNode,
-                  autofocus: true,
-                  child: DropTarget(
-                    onDragEntered: (_) => setState(() => _isDragging = true),
-                    onDragExited: (_) => setState(() => _isDragging = false),
-                    onDragDone: (detail) {
-                      setState(() => _isDragging = false);
-                      if (detail.files.isNotEmpty) {
-                        widget.controller.loadPath(detail.files.first.path);
-                      }
-                    },
-                    child: AmigaCopperBackground(
-                      isProcessing: isProcessing,
-                      mode: _crunchController.activeMode,
-                      child: Scaffold(
-                        backgroundColor: Colors.transparent,
-                        body: Column(
-                          children: [
-                            // Canvas Viewport Area
-                            Expanded(
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  // Main edge-to-edge canvas
-                                  _buildImageCanvas(),
-
-                                  // Drag and drop overlay
-                                  if (_isDragging)
-                                    Container(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.85,
-                                      ),
-                                      child: Center(
-                                        child: RetroPanel(
-                                          style: RetroPanelStyle.rivetedPlate,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 28,
-                                            vertical: 20,
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(
-                                                Icons.file_download_rounded,
-                                                color: AppTheme.xCopyAmber,
-                                                size: 32,
-                                              ),
-                                              const SizedBox(width: 14),
-                                              Text(
-                                                'DROP IMAGE TO CRUNCH',
-                                                style: TextStyle(
-                                                  fontFamily: 'monospace',
-                                                  color: context.wireframeCyan,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 15,
-                                                  letterSpacing: 1.5,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-
-                                  // Retro Instrument HUD Pill (with auto-fade on inactivity)
-                                  if (c.hasImages)
-                                    Positioned(
-                                      top: 14,
-                                      left: 14,
-                                      child: AnimatedOpacity(
-                                        opacity: _isHudVisible ? 1.0 : 0.0,
-                                        duration: const Duration(
-                                          milliseconds: 250,
-                                        ),
-                                        child: IgnorePointer(
-                                          ignoring: !_isHudVisible,
-                                          child: RetroPanel(
-                                            style:
-                                                RetroPanelStyle.cyanWireframe,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 6,
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                RetroLed(
-                                                  isActive: true,
-                                                  size: 7,
-                                                  activeColor: _modeColor(
-                                                    _crunchController
-                                                        .activeMode,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Text(
-                                                  _crunchController
-                                                      .activeMode
-                                                      .name
-                                                      .toUpperCase(),
-                                                  style: TextStyle(
-                                                    fontFamily: 'monospace',
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.bold,
-                                                    letterSpacing: 1.2,
-                                                    color: _modeColor(
-                                                      _crunchController
-                                                          .activeMode,
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 10),
-                                                Container(
-                                                  width: 1,
-                                                  height: 12,
-                                                  color:
-                                                      context.wireframeCyanDim,
-                                                ),
-                                                const SizedBox(width: 10),
-                                                Text(
-                                                  c.currentFileName,
-                                                  style: const TextStyle(
-                                                    fontFamily: 'monospace',
-                                                    fontSize: 11,
-                                                    color: Colors.white,
-                                                    letterSpacing: 0.5,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 10),
-                                                Container(
-                                                  width: 1,
-                                                  height: 12,
-                                                  color:
-                                                      context.wireframeCyanDim,
-                                                ),
-                                                const SizedBox(width: 10),
-                                                Text(
-                                                  '${(_currentScale * 100).toInt()}%',
-                                                  style: const TextStyle(
-                                                    fontFamily: 'monospace',
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: AppTheme.xCopyAmber,
-                                                    letterSpacing: 1.0,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-
-                                  // The invisible/proximity FAB
-                                  ProximityFab(onPressed: _showMenu),
-                                ],
-                              ),
-                            ),
-
-                            // Permanent Bottom Retro Status Bar (solid console base)
-                            RetroStatusBar(
-                              statusText: _getStatusMessage(c),
-                              dimensions: _naturalSize,
-                              zoomScale: _currentScale,
-                              currentIndex: c.currentIndex,
-                              totalCount: c.playlist.length,
-                              trailing: RetroButton(
-                                label: 'MENU',
-                                shortcut: 'M',
-                                fontSize: 9,
+                        // Drag and drop overlay
+                        if (_isDragging)
+                          Container(
+                            color: Colors.black.withValues(alpha: 0.85),
+                            child: Center(
+                              child: RetroPanel(
+                                style: RetroPanelStyle.rivetedPlate,
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
+                                  horizontal: 28,
+                                  vertical: 20,
                                 ),
-                                onPressed: _showMenu,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.file_download_rounded,
+                                      color: AppTheme.xCopyAmber,
+                                      size: 32,
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Text(
+                                      'DROP IMAGE TO CRUNCH',
+                                      style: TextStyle(
+                                        fontFamily: 'monospace',
+                                        color: context.wireframeCyan,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                        letterSpacing: 1.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
+                          ),
+
+                        // Retro Instrument HUD Pill (with auto-fade on inactivity)
+                        if (c.hasImages)
+                          Positioned(
+                            top: 14,
+                            left: 14,
+                            child: AnimatedOpacity(
+                              opacity: _isHudVisible ? 1.0 : 0.0,
+                              duration: const Duration(milliseconds: 250),
+                              child: IgnorePointer(
+                                ignoring: !_isHudVisible,
+                                child: RetroPanel(
+                                  style: RetroPanelStyle.cyanWireframe,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      RetroLed(
+                                        isActive: true,
+                                        size: 7,
+                                        activeColor: _modeColor(
+                                          _crunchController.activeMode,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        _crunchController.activeMode.name
+                                            .toUpperCase(),
+                                        style: TextStyle(
+                                          fontFamily: 'monospace',
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.2,
+                                          color: _modeColor(
+                                            _crunchController.activeMode,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Container(
+                                        width: 1,
+                                        height: 12,
+                                        color: context.wireframeCyanDim,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        c.currentFileName,
+                                        style: const TextStyle(
+                                          fontFamily: 'monospace',
+                                          fontSize: 11,
+                                          color: Colors.white,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Container(
+                                        width: 1,
+                                        height: 12,
+                                        color: context.wireframeCyanDim,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        '${(_currentScale * 100).toInt()}%',
+                                        style: const TextStyle(
+                                          fontFamily: 'monospace',
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.xCopyAmber,
+                                          letterSpacing: 1.0,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                        // The invisible/proximity FAB
+                        ProximityFab(onPressed: _showMenu),
+                      ],
                     ),
                   ),
-                ),
-              );
-            },
+
+                  // Permanent Bottom Retro Status Bar (solid console base)
+                  RetroStatusBar(
+                    statusText: _getStatusMessage(c),
+                    dimensions: _naturalSize,
+                    zoomScale: _currentScale,
+                    currentIndex: c.currentIndex,
+                    totalCount: c.playlist.length,
+                    trailing: RetroButton(
+                      label: 'MENU',
+                      shortcut: 'M',
+                      fontSize: 9,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      onPressed: _showMenu,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
