@@ -23,7 +23,7 @@ pub fn convert_to_ascii(
         &orig_pixels,
         width,
         height,
-        image::imageops::FilterType::Nearest,
+        image::imageops::FilterType::Triangle,
     );
 
     // preallocate string with width * height + height for \n
@@ -68,24 +68,15 @@ pub fn convert_to_ascii_image(
     // Drawing color
     let translucent_green = Rgba([0u8, 255u8, 0u8, 127u8]);
     // font scale
-    let scale: usize = 10;
+    let scale: usize = 18;
 
     let mut out_cursor = Cursor::new(Vec::new()); // cursor to write encoded output
 
     let ascii =
         convert_to_ascii(raw_bytes, target_width, char_aspect).map_err(|e| e.to_string())?;
 
-    let ascii_iter = ascii.split('\n');
-    let mut max_width = 0;
-    let mut lines: Vec<String> = Vec::new();
-
-    // split and get max width
-    for line in ascii_iter {
-        if line.len() > max_width {
-            max_width = line.len();
-        }
-        lines.push(line.to_string());
-    }
+    let max_width = target_width;
+    let lines: Vec<&str> = ascii.lines().collect();
 
     // change scale value defining height to reflect the glyph real width (or guess)
     let char_width = scale as f32 * 0.46;
@@ -97,10 +88,8 @@ pub fn convert_to_ascii_image(
         image::Rgba([0, 0, 0, 255])
     });
 
-    let font = FontRef::try_from_slice(include_bytes!(
-        "/usr/share/fonts/TTF/RobotoMono-Regular.ttf"
-    ))
-    .map_err(|e| e.to_string())?;
+    let font = FontRef::try_from_slice(include_bytes!("../../fonts/RobotoMono-Regular.ttf"))
+        .map_err(|e| e.to_string())?;
 
     // cook
     for (i, line) in lines.iter().enumerate() {
