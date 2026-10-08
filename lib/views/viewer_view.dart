@@ -12,7 +12,7 @@ import '../utils/clipboard_helper.dart';
 import '../utils/file_dialog_helper.dart';
 import '../utils/image_matrix_helper.dart';
 import '../widgets/amiga_copper_background.dart';
-import '../widgets/proximity_fab.dart';
+import '../widgets/retro_command_deck.dart';
 import '../widgets/retro_button.dart';
 import '../widgets/retro_led.dart';
 import '../widgets/retro_floppy_disk.dart';
@@ -205,7 +205,18 @@ class _ViewerViewState extends State<ViewerView> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _buildMenuSheet(ctx),
+      builder: (ctx) => RetroCommandDeck(
+        controller: widget.controller,
+        crunchController: _crunchController,
+        onPickImage: _pickImageFile,
+        onPickDirectory: _pickDirectory,
+        onOpenPath: _showOpenPathDialog,
+        onResetZoom: _resetTransform,
+        onCopy: _copyContent,
+        onPaste: _pasteImageFromClipboard,
+        onShowHelp: _showHelpDialog,
+        onQuit: _handleEscape,
+      ),
     );
   }
 
@@ -251,222 +262,6 @@ class _ViewerViewState extends State<ViewerView> {
                 widget.controller.loadPath(textController.text.trim());
               }
             },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMenuSheet(BuildContext ctx) {
-    final c = widget.controller;
-    return RetroPanel(
-      style: RetroPanelStyle.rivetedPlate,
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const RetroLed(
-                    isActive: true,
-                    activeColor: AppTheme.xCopyGreen,
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'IMGCRUNCH // COMMAND DECK',
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
-                      color: AppTheme.xCopyCyan,
-                    ),
-                  ),
-                ],
-              ),
-              if (c.hasImages)
-                Text(
-                  'TRACK: ${c.currentIndex + 1}/${c.playlist.length}',
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                    color: AppTheme.xCopyAmber,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-            ],
-          ),
-          if (c.currentFileName.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              '> ${c.currentFileName}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 11,
-                color: AppTheme.xCopyGreen,
-                letterSpacing: 0.8,
-              ),
-            ),
-          ],
-          const SizedBox(height: 14),
-          // View Mode Selector
-          Row(
-            children: [
-              RetroButton(
-                label: 'NORMAL',
-                shortcut: '1',
-                textColor: AppTheme.xCopyCyan,
-                isSelected: _crunchController.activeMode == ViewMode.normal,
-                onPressed: () {
-                  _crunchController.setMode(ViewMode.normal);
-                  Navigator.of(ctx).pop();
-                },
-              ),
-              const SizedBox(width: 8),
-              RetroButton(
-                label: 'ELA FORENSICS',
-                shortcut: '2',
-                textColor: AppTheme.xCopyAmber,
-                isSelected: _crunchController.activeMode == ViewMode.ela,
-                onPressed: () {
-                  _crunchController.setMode(ViewMode.ela);
-                  Navigator.of(ctx).pop();
-                },
-              ),
-              const SizedBox(width: 8),
-              RetroButton(
-                label: 'ASCII MATRIX',
-                shortcut: '3',
-                textColor: AppTheme.xCopyGreen,
-                isSelected: _crunchController.activeMode == ViewMode.ascii,
-                onPressed: () {
-                  _crunchController.setMode(ViewMode.ascii);
-                  Navigator.of(ctx).pop();
-                },
-              ),
-              const SizedBox(width: 8),
-              RetroButton(
-                label: 'STRINGS',
-                shortcut: '4',
-                textColor: AppTheme.xCopyAmber,
-                isSelected: _crunchController.activeMode == ViewMode.strings,
-                onPressed: () {
-                  _crunchController.setMode(ViewMode.strings);
-                  Navigator.of(ctx).pop();
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          // Actions
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              RetroButton(
-                icon: Icons.image_outlined,
-                label: 'OPEN IMAGE',
-                shortcut: 'O',
-                textColor: AppTheme.xCopyAmber,
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  _pickImageFile();
-                },
-              ),
-              RetroButton(
-                icon: Icons.folder_open_rounded,
-                label: 'OPEN FOLDER',
-                textColor: AppTheme.xCopyAmber,
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  _pickDirectory();
-                },
-              ),
-              RetroButton(
-                icon: Icons.edit_road_rounded,
-                label: 'MANUAL PATH',
-                textColor: AppTheme.xCopyCyan,
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  _showOpenPathDialog();
-                },
-              ),
-              RetroButton(
-                icon: Icons.refresh_rounded,
-                label: 'RESET ZOOM',
-                shortcut: '0',
-                textColor: AppTheme.xCopyCyan,
-                onPressed: () {
-                  _resetTransform();
-                  Navigator.of(ctx).pop();
-                },
-              ),
-              RetroButton(
-                icon: Icons.copy_rounded,
-                label: 'COPY',
-                shortcut: 'Ctrl+C',
-                textColor: AppTheme.xCopyGreen,
-                onPressed: c.hasImages
-                    ? () {
-                        Navigator.of(ctx).pop();
-                        _copyContent();
-                      }
-                    : null,
-              ),
-              RetroButton(
-                icon: Icons.paste_rounded,
-                label: 'PASTE',
-                shortcut: 'Ctrl+V',
-                textColor: AppTheme.xCopyGreen,
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  _pasteImageFromClipboard();
-                },
-              ),
-              RetroButton(
-                icon: Icons.arrow_back_rounded,
-                label: 'PREV',
-                shortcut: 'Left',
-                textColor: AppTheme.xCopyAmber,
-                onPressed: c.hasImages ? c.previous : null,
-              ),
-              RetroButton(
-                icon: Icons.arrow_forward_rounded,
-                label: 'NEXT',
-                shortcut: 'Right',
-                textColor: AppTheme.xCopyAmber,
-                onPressed: c.hasImages ? c.next : null,
-              ),
-              RetroButton(
-                icon: Icons.help_outline_rounded,
-                label: 'HELP',
-                shortcut: 'H',
-                textColor: AppTheme.xCopyCyan,
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  _showHelpDialog();
-                },
-              ),
-              RetroButton(
-                icon: Icons.power_settings_new_rounded,
-                label: 'QUIT',
-                shortcut: 'ESC',
-                textColor: AppTheme.xCopyRed,
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  _handleEscape();
-                },
-              ),
-            ],
           ),
         ],
       ),
@@ -1044,9 +839,6 @@ class _ViewerViewState extends State<ViewerView> {
                               ),
                             ),
                           ),
-
-                        // The invisible/proximity FAB
-                        ProximityFab(onPressed: _showMenu),
                       ],
                     ),
                   ),
