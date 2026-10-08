@@ -1,3 +1,7 @@
+use ab_glyph::FontRef;
+use image::{ImageBuffer, Rgba};
+use std::io::Cursor;
+
 pub fn convert_to_ascii(
     raw_bytes: Vec<u8>,
     target_width: usize,
@@ -54,4 +58,69 @@ pub fn convert_to_ascii(
     }
 
     Ok(final_ascii)
+}
+
+pub fn convert_to_ascii_image(
+    raw_bytes: Vec<u8>,
+    target_width: usize,
+    char_aspect: f32,
+) -> Result<(Vec<u8>, String), String> {
+    // Drawing color
+    let translucent_green = Rgba([0u8, 255u8, 0u8, 127u8]);
+    // font scale
+    let scale: usize = 10;
+
+    let mut out_cursor = Cursor::new(Vec::new()); // cursor to write encoded output
+
+    let ascii =
+        convert_to_ascii(raw_bytes, target_width, char_aspect).map_err(|e| e.to_string())?;
+
+    let ascii_iter = ascii.split('\n');
+    let mut max_width = 0;
+    let mut lines: Vec<String> = Vec::new();
+
+    // split and get max width
+    for line in ascii_iter {
+        if line.len() > max_width {
+            max_width = line.len();
+        }
+        lines.push(line.to_string());
+    }
+
+    // change scale value defining height to reflect the glyph real width (or guess)
+    let char_width = scale as f32 * 0.46;
+    let img_width = (max_width as f32 * char_width as f32) as usize;
+    let img_height = lines.len() * scale;
+
+    // gen image
+    let mut img = ImageBuffer::from_fn(img_width as u32, img_height as u32, |_, _| {
+        image::Rgba([0, 0, 0, 255])
+    });
+
+    let font = FontRef::try_from_slice(include_bytes!(
+        "/usr/share/fonts/TTF/RobotoMono-Regular.ttf"
+    ))
+    .map_err(|e| e.to_string())?;
+
+    // cook
+    for (i, line) in lines.iter().enumerate() {
+        let y = scale as usize * i;
+
+        imageproc::drawing::draw_text_mut(
+            &mut img,
+            translucent_green,
+            0,
+            y as i32,
+            scale as f32,
+            &font,
+            &line,
+        );
+    }
+
+    // serve
+    img.write_to(&mut out_cursor, image::ImageFormat::Png)
+        .map_err(|e| e.to_string())?;
+
+    // deliver
+    Ok((out_cursor.into_inner(), ascii))
 }

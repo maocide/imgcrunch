@@ -15,3 +15,13 @@ Future<String> convertToAscii({
   targetWidth: targetWidth,
   charAspect: charAspect,
 );
+
+Future<(Uint8List, String)> convertToAsciiImage({
+  required List<int> rawBytes,
+  required BigInt targetWidth,
+  required double charAspect,
+}) => RustLib.instance.api.crateApiAsciiConvertToAsciiImage(
+  rawBytes: rawBytes,
+  targetWidth: targetWidth,
+  charAspect: charAspect,
+);

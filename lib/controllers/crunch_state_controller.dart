@@ -29,6 +29,8 @@ class PipelineError<T> extends PipelineState<T> {
   const PipelineError(this.message);
 }
 
+typedef AsciiCrunchResult = ({Uint8List imageBytes, String text});
+
 class CrunchStateController extends ChangeNotifier {
   CrunchStateController({
     RustImageService? rustService,
@@ -48,14 +50,14 @@ class CrunchStateController extends ChangeNotifier {
   String? _currentPath;
 
   PipelineState<Uint8List> _elaState = const PipelineIdle<Uint8List>();
-  PipelineState<String> _asciiState = const PipelineIdle<String>();
+  PipelineState<AsciiCrunchResult> _asciiState = const PipelineIdle<AsciiCrunchResult>();
   PipelineState<String> _stringsState = const PipelineIdle<String>();
 
   ViewMode get activeMode => _activeMode;
   String? get currentPath => _currentPath;
 
   PipelineState<Uint8List> get elaState => _elaState;
-  PipelineState<String> get asciiState => _asciiState;
+  PipelineState<AsciiCrunchResult> get asciiState => _asciiState;
   PipelineState<String> get stringsState => _stringsState;
 
   /// Returns the state of the currently active view mode.
@@ -117,7 +119,7 @@ class CrunchStateController extends ChangeNotifier {
   void onImageChanged(String? newPath) {
     _currentPath = newPath;
     _elaState = const PipelineIdle<Uint8List>();
-    _asciiState = const PipelineIdle<String>();
+    _asciiState = const PipelineIdle<AsciiCrunchResult>();
     _stringsState = const PipelineIdle<String>();
     notifyListeners();
     _triggerActivePipelineIfNeeded();
@@ -136,7 +138,7 @@ class CrunchStateController extends ChangeNotifier {
         }
         break;
       case ViewMode.ascii:
-        if (_asciiState is PipelineIdle<String>) {
+        if (_asciiState is PipelineIdle<AsciiCrunchResult>) {
           generateAscii();
         }
         break;
@@ -176,24 +178,27 @@ class CrunchStateController extends ChangeNotifier {
   Future<void> generateAscii() async {
     final path = _currentPath;
     if (path == null) return;
-    _asciiState = PipelineProcessing<String>(
+    _asciiState = PipelineProcessing<AsciiCrunchResult>(
       'CRUNCHING ASCII IN RUST ($asciiTargetWidth COLS)...',
     );
     notifyListeners();
 
     try {
-      final text = await _rustService.convertToAsciiFromFile(
+      final (imageBytes, text) = await _rustService.convertToAsciiImageFromFile(
         path,
         targetWidth: asciiTargetWidth,
         charAspect: asciiCharAspect,
       );
       if (_currentPath == path) {
-        _asciiState = PipelineReady<String>(text);
+        _asciiState = PipelineReady<AsciiCrunchResult>((
+          imageBytes: imageBytes,
+          text: text,
+        ));
         notifyListeners();
       }
     } catch (e) {
       if (_currentPath == path) {
-        _asciiState = PipelineError<String>(e.toString());
+        _asciiState = PipelineError<AsciiCrunchResult>(e.toString());
         notifyListeners();
       }
     }
@@ -257,8 +262,8 @@ class CrunchStateController extends ChangeNotifier {
         }
 
       case ViewMode.ascii:
-        if (_asciiState case PipelineReady<String>(:final data)) {
-          await Clipboard.setData(ClipboardData(text: data));
+        if (_asciiState case PipelineReady<AsciiCrunchResult>(:final data)) {
+          await Clipboard.setData(ClipboardData(text: data.text));
           return 'ASCII art copied to clipboard!';
         } else if (_asciiState is PipelineProcessing) {
           return 'ASCII art is still crunching, please wait...';

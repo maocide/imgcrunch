@@ -64,6 +64,37 @@ class RustImageService {
     );
   }
 
+  /// Converts image bytes to an ASCII art PNG bitmap and raw text string tuple.
+  Future<(Uint8List, String)> convertToAsciiImageFromBytes(
+    Uint8List rawBytes, {
+    int targetWidth = 100,
+    double charAspect = 1,
+  }) async {
+    return await rust_ascii.convertToAsciiImage(
+      rawBytes: rawBytes,
+      targetWidth: BigInt.from(targetWidth),
+      charAspect: charAspect,
+    );
+  }
+
+  /// Convenience method: Reads file at [filePath] and converts to ASCII art PNG bitmap and text.
+  Future<(Uint8List, String)> convertToAsciiImageFromFile(
+    String filePath, {
+    int targetWidth = 100,
+    double charAspect = 1,
+  }) async {
+    final file = File(filePath);
+    if (!await file.exists()) {
+      throw FileSystemException('Image file not found', filePath);
+    }
+    final bytes = await file.readAsBytes();
+    return await convertToAsciiImageFromBytes(
+      bytes,
+      targetWidth: targetWidth,
+      charAspect: charAspect,
+    );
+  }
+
   /// Extracts contiguous printable ASCII strings of at least [minLen] characters.
   Future<String> extractStringsFromBytes(
     Uint8List rawBytes, {

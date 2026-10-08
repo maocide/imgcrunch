@@ -1,4 +1,5 @@
 use image_crunch::api::ascii::convert_to_ascii;
+use image_crunch::api::ascii::convert_to_ascii_image;
 use image_crunch::api::ela::process_ela_bytes;
 use image_crunch::api::strings::extract_strings;
 use std::error::Error;
@@ -13,6 +14,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         let ascii = convert_to_ascii(file_bytes.clone(), 90, 0.4)?; // deal with cloning here later, we will have paths.
         print!("{ascii}");
+
+        let ascii_res = convert_to_ascii_image(file_bytes.clone(), 90, 0.4)?; // deal with cloning here later, we will have paths.
+        std::fs::write("zombillie_ascii.png", &ascii_res.0)?;
 
         let ela = process_ela_bytes(file_bytes, 25).map_err(|e| e)?;
         std::fs::write("zombillie_ela.png", &ela)?;
