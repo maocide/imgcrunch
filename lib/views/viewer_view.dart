@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -45,6 +44,7 @@ class _ViewerViewState extends State<ViewerView> {
   Size? _naturalSize;
   Size? _lastViewportSize;
   bool _isDragging = false;
+  bool _loadError = false;
 
   @override
   void initState() {
@@ -94,13 +94,14 @@ class _ViewerViewState extends State<ViewerView> {
     final path = widget.controller.currentPath;
     if (path == null) return;
     ImageMatrixHelper.getImageDimensions(path).then((size) {
-      if (!mounted || size == null || widget.controller.currentPath != path) {
+      if (!mounted || widget.controller.currentPath != path) {
         return;
       }
       setState(() {
         _naturalSize = size;
+        _loadError = size == null;
       });
-      if (_lastViewportSize != null) {
+      if (_naturalSize != null && _lastViewportSize != null) {
         _resetTransform();
       }
     });
@@ -109,6 +110,7 @@ class _ViewerViewState extends State<ViewerView> {
   void _onImageChange() {
     setState(() {
       _naturalSize = null;
+      _loadError = false;
     });
     _crunchController.onImageChanged(widget.controller.currentPath);
     _loadCurrentDimensions();
@@ -452,9 +454,53 @@ class _ViewerViewState extends State<ViewerView> {
           }
         }
 
+        if (_loadError) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.broken_image_outlined,
+                  size: 64,
+                  color: AppTheme.xCopyRed,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'CORRUPT OR UNSUPPORTED IMAGE',
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.xCopyRed,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    path,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      color: AppTheme.xCopyAmber,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
         if (_naturalSize == null) {
           return const SizedBox.shrink();
         }
+
+        final filterQuality = _currentScale >= 1.0
+            ? FilterQuality.none
+            : FilterQuality.medium;
 
         Widget content;
         switch (_crunchController.activeMode) {
@@ -465,7 +511,7 @@ class _ViewerViewState extends State<ViewerView> {
               child: Image.file(
                 File(path),
                 fit: BoxFit.fill,
-                filterQuality: FilterQuality.none,
+                filterQuality: filterQuality,
                 errorBuilder: (context, error, stackTrace) => Center(
                   child: Text(
                     'Failed to load image:\n$error',
@@ -486,7 +532,7 @@ class _ViewerViewState extends State<ViewerView> {
               elaBody = Image.memory(
                 data,
                 fit: BoxFit.fill,
-                filterQuality: FilterQuality.none,
+                filterQuality: filterQuality,
               );
             } else if (elaState case PipelineError(:final message)) {
               elaBody = Center(
@@ -504,7 +550,7 @@ class _ViewerViewState extends State<ViewerView> {
               elaBody = Image.file(
                 File(path),
                 fit: BoxFit.fill,
-                filterQuality: FilterQuality.none,
+                filterQuality: filterQuality,
               );
             }
             content = SizedBox(
@@ -538,7 +584,7 @@ class _ViewerViewState extends State<ViewerView> {
               asciiBody = Image.file(
                 File(path),
                 fit: BoxFit.fill,
-                filterQuality: FilterQuality.none,
+                filterQuality: filterQuality,
               );
             }
             content = SizedBox(
@@ -553,9 +599,7 @@ class _ViewerViewState extends State<ViewerView> {
 
         final interactive = InteractiveViewer(
           transformationController: _transformController,
-          boundaryMargin: EdgeInsets.all(
-            max(viewportSize.width, viewportSize.height),
-          ),
+          boundaryMargin: const EdgeInsets.all(double.infinity),
           minScale: 0.02,
           maxScale: 50.0,
           scaleEnabled: false,
@@ -603,7 +647,8 @@ class _ViewerViewState extends State<ViewerView> {
     final isNormalLoading =
         _crunchController.activeMode == ViewMode.normal &&
         c.hasImages &&
-        _naturalSize == null;
+        _naturalSize == null &&
+        !_loadError;
     final isProcessing =
         isNormalLoading ||
         (_crunchController.activeState is PipelineProcessing);

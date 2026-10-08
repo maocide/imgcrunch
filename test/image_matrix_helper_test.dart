@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:imgcrunch/utils/image_matrix_helper.dart';
@@ -53,6 +54,39 @@ void main() {
 
       expect(zoomed, isNotNull);
       expect(zoomed!.getMaxScaleOnAxis(), closeTo(2.0, 0.001));
+    });
+
+    test('tryParseHeader decodes GIF89a dimensions from raw header bytes', () {
+      // GIF89a with 640x480: 640 = 0x0280 (80 02), 480 = 0x01E0 (E0 01)
+      final gifBytes = [
+        0x47, 0x49, 0x46, 0x38, 0x39, 0x61, // 'GIF89a'
+        0x80, 0x02, // 640
+        0xE0, 0x01, // 480
+      ];
+      final size = ImageMatrixHelper.tryParseHeader(
+        Uint8List.fromList(gifBytes),
+      );
+      expect(size, const Size(640, 480));
+    });
+
+    test('tryParseHeader decodes PNG dimensions from IHDR chunk', () {
+      // PNG: \x89PNG\r\n\x1a\n + chunk len + IHDR + width(1920) + height(1080)
+      final pngBytes = [
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // magic
+        0x00, 0x00, 0x00, 0x0D, // chunk length 13
+        0x49, 0x48, 0x44, 0x52, // 'IHDR'
+        0x00, 0x00, 0x07, 0x80, // width 1920
+        0x00, 0x00, 0x04, 0x38, // height 1080
+      ];
+      final size = ImageMatrixHelper.tryParseHeader(
+        Uint8List.fromList(pngBytes),
+      );
+      expect(size, const Size(1920, 1080));
+    });
+
+    test('tryParseHeader returns null for corrupted/unrecognized bytes', () {
+      final garbage = Uint8List.fromList([0x00, 0x01, 0x02, 0x03]);
+      expect(ImageMatrixHelper.tryParseHeader(garbage), isNull);
     });
   });
 }
