@@ -41,6 +41,7 @@ dependencies:
   image_crunch:
     path: rust_builder
   flutter_rust_bridge: 2.13.0
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:
