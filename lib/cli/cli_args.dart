@@ -194,6 +194,8 @@ class CliArgs {
         return ViewMode.ascii;
       case 'strings':
         return ViewMode.strings;
+      case 'vlm':
+        return ViewMode.vlm;
       case 'normal':
         return ViewMode.normal;
       default:

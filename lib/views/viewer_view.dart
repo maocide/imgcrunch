@@ -241,6 +241,8 @@ class _ViewerViewState extends State<ViewerView> {
         return AppTheme.xCopyGreen;
       case ViewMode.strings:
         return AppTheme.xCopyAmber;
+      case ViewMode.vlm:
+        return AppTheme.xCopyGreen;
     }
   }
 
@@ -595,6 +597,7 @@ class _ViewerViewState extends State<ViewerView> {
             );
 
           case ViewMode.strings:
+          case ViewMode.vlm:
             content = const SizedBox.shrink();
         }
 
@@ -710,6 +713,10 @@ class _ViewerViewState extends State<ViewerView> {
         const SingleActivator(LogicalKeyboardKey.digit4): () {
           _bumpHud();
           _crunchController.setMode(ViewMode.strings);
+        },
+        const SingleActivator(LogicalKeyboardKey.digit5): () {
+          _bumpHud();
+          _crunchController.setMode(ViewMode.vlm);
         },
         const SingleActivator(LogicalKeyboardKey.keyM): _showMenu,
         const SingleActivator(LogicalKeyboardKey.keyO): _pickImageFile,

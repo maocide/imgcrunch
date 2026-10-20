@@ -97,7 +97,9 @@ class RetroCommandDeck extends StatelessWidget {
           ],
           const SizedBox(height: 14),
           // View Mode Selector
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               RetroButton(
                 label: 'NORMAL',
@@ -109,7 +111,6 @@ class RetroCommandDeck extends StatelessWidget {
                   Navigator.of(context).pop();
                 },
               ),
-              const SizedBox(width: 8),
               RetroButton(
                 label: 'ELA FORENSICS',
                 shortcut: '2',
@@ -120,7 +121,6 @@ class RetroCommandDeck extends StatelessWidget {
                   Navigator.of(context).pop();
                 },
               ),
-              const SizedBox(width: 8),
               RetroButton(
                 label: 'ASCII MATRIX',
                 shortcut: '3',
@@ -131,7 +131,6 @@ class RetroCommandDeck extends StatelessWidget {
                   Navigator.of(context).pop();
                 },
               ),
-              const SizedBox(width: 8),
               RetroButton(
                 label: 'STRINGS',
                 shortcut: '4',
@@ -139,6 +138,16 @@ class RetroCommandDeck extends StatelessWidget {
                 isSelected: crunchController.activeMode == ViewMode.strings,
                 onPressed: () {
                   crunchController.setMode(ViewMode.strings);
+                  Navigator.of(context).pop();
+                },
+              ),
+              RetroButton(
+                label: 'VLM VISION',
+                shortcut: '5',
+                textColor: AppTheme.xCopyGreen,
+                isSelected: crunchController.activeMode == ViewMode.vlm,
+                onPressed: () {
+                  crunchController.setMode(ViewMode.vlm);
                   Navigator.of(context).pop();
                 },
               ),

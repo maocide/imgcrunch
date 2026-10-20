@@ -3,8 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../services/rust_image_service.dart';
 import '../utils/clipboard_helper.dart';
+import 'vlm_controller.dart';
 
-enum ViewMode { normal, ela, ascii, strings }
+enum ViewMode { normal, ela, ascii, strings, vlm }
 
 sealed class PipelineState<T> {
   const PipelineState();
@@ -34,13 +35,18 @@ typedef AsciiCrunchResult = ({Uint8List imageBytes, String text});
 class CrunchStateController extends ChangeNotifier {
   CrunchStateController({
     RustImageService? rustService,
+    VlmController? vlmController,
     this.strMinLen = 6,
     this.asciiTargetWidth = 120,
     this.asciiCharAspect = 0.7,
     this.elaScale = 25,
-  }) : _rustService = rustService ?? RustImageService.instance;
+  })  : _rustService = rustService ?? RustImageService.instance,
+        _vlmController = vlmController ?? VlmController() {
+    _vlmController.addListener(notifyListeners);
+  }
 
   final RustImageService _rustService;
+  final VlmController _vlmController;
   final int strMinLen;
   final int asciiTargetWidth;
   final double asciiCharAspect;
@@ -55,10 +61,12 @@ class CrunchStateController extends ChangeNotifier {
 
   ViewMode get activeMode => _activeMode;
   String? get currentPath => _currentPath;
+  VlmController get vlmController => _vlmController;
 
   PipelineState<Uint8List> get elaState => _elaState;
   PipelineState<AsciiCrunchResult> get asciiState => _asciiState;
   PipelineState<String> get stringsState => _stringsState;
+  PipelineState<String> get vlmState => _vlmController.state;
 
   /// Returns the state of the currently active view mode.
   PipelineState<dynamic> get activeState {
@@ -71,6 +79,8 @@ class CrunchStateController extends ChangeNotifier {
         return _asciiState;
       case ViewMode.strings:
         return _stringsState;
+      case ViewMode.vlm:
+        return _vlmController.state;
     }
   }
 
@@ -104,6 +114,13 @@ class CrunchStateController extends ChangeNotifier {
           PipelineReady() => 'Operation done.',
           PipelineIdle() => 'CRUNCH ENGINE READY.',
         };
+      case ViewMode.vlm:
+        return switch (_vlmController.state) {
+          PipelineProcessing(:final statusMessage) => statusMessage,
+          PipelineError(:final message) => 'VLM ERROR: $message',
+          PipelineReady() => 'Operation done.',
+          PipelineIdle() => 'VLM READY. PRESS (CTRL+ENTER) TO CRUNCH.',
+        };
     }
   }
 
@@ -121,6 +138,7 @@ class CrunchStateController extends ChangeNotifier {
     _elaState = const PipelineIdle<Uint8List>();
     _asciiState = const PipelineIdle<AsciiCrunchResult>();
     _stringsState = const PipelineIdle<String>();
+    _vlmController.onImageChanged(newPath);
     notifyListeners();
     _triggerActivePipelineIfNeeded();
   }
@@ -146,6 +164,10 @@ class CrunchStateController extends ChangeNotifier {
         if (_stringsState is PipelineIdle<String>) {
           generateStrings();
         }
+        break;
+      case ViewMode.vlm:
+        // VLM requests are triggered on-demand via Ctrl+Enter or [CRUNCH]
+        // to avoid unprompted API token consumption while browsing images.
         break;
     }
   }
@@ -280,6 +302,23 @@ class CrunchStateController extends ChangeNotifier {
         } else {
           return 'Extracted strings not ready to copy';
         }
+
+      case ViewMode.vlm:
+        if (_vlmController.state case PipelineReady<String>(:final data)) {
+          await Clipboard.setData(ClipboardData(text: data));
+          return 'VLM caption copied to clipboard!';
+        } else if (_vlmController.state is PipelineProcessing) {
+          return 'VLM caption is still crunching...';
+        } else {
+          return 'No VLM caption ready to copy';
+        }
     }
+  }
+
+  @override
+  void dispose() {
+    _vlmController.removeListener(notifyListeners);
+    _vlmController.dispose();
+    super.dispose();
   }
 }

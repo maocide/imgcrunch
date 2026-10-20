@@ -26,7 +26,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('IMGCRUNCH // COMMAND REFERENCE'), findsOneWidget);
-      expect(find.text('1 / 2 / 3 / 4'), findsOneWidget);
+      expect(find.text('1 / 2 / 3 / 4 / 5'), findsOneWidget);
       expect(find.text('CLOSE'), findsOneWidget);
 
       await tester.tap(find.text('CLOSE'));

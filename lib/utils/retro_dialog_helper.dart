@@ -69,8 +69,8 @@ class RetroDialogHelper {
                       children: const [
                         TableRow(
                           children: [
-                            _HelpKey('1 / 2 / 3 / 4'),
-                            _HelpDesc('Normal / ELA / ASCII / Strings Mode'),
+                            _HelpKey('1 / 2 / 3 / 4 / 5'),
+                            _HelpDesc('Normal / ELA / ASCII / Strings / VLM Mode'),
                           ],
                         ),
                         TableRow(
