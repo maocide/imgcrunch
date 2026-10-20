@@ -237,6 +237,18 @@ class _DecruncherRasterPainter extends CustomPainter {
       Color(0xFF80ECFF), // Bright Strobe Highlight
       Color(0xFF05070B), // CRT Black
     ],
+
+    ViewMode.vlm: [
+      Color(0xFF05070B), // CRT Black
+      Color(0xFF15002E), // Deep Cyber Violet
+      Color(0xFF2E0066), // Electric Violet
+      Color(0xFF00382B), // Deep Phosphor Teal
+      Color(0xFF00664D), // Mid Emerald
+      Color(0xFF00A37A), // Cyber Mint
+      Color(0xFF00E5AA), // Searing Phosphor Green
+      Color(0xFF80FFD5), // Bright Laser Strobe
+      Color(0xFF05070B), // CRT Black
+    ],
   };
 
   @override

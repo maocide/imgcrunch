@@ -111,6 +111,14 @@ void main() {
         expect(decoded['model'], equals('qwen2.5-vl'));
         expect(decoded['stream'], isTrue);
 
+        final messages = (decoded['messages'] as List).cast<Map<String, dynamic>>();
+        expect(messages.first['role'], equals('system'));
+        expect(messages.first['content'], equals('Describe image'));
+        expect(messages.last['role'], equals('user'));
+        final userContent = (messages.last['content'] as List).cast<Map<String, dynamic>>();
+        expect(userContent.first['type'], equals('text'));
+        expect(userContent.last['type'], equals('image_url'));
+
         final controller = StreamController<List<int>>();
         for (final line in sseLines) {
           controller.add(utf8.encode(line));

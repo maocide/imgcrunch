@@ -42,7 +42,8 @@ class CrunchStateController extends ChangeNotifier {
     this.elaScale = 25,
   })  : _rustService = rustService ?? RustImageService.instance,
         _vlmController = vlmController ?? VlmController() {
-    _vlmController.addListener(notifyListeners);
+    _lastVlmState = _vlmController.state;
+    _vlmController.addListener(_onVlmStateChanged);
   }
 
   final RustImageService _rustService;
@@ -58,10 +59,20 @@ class CrunchStateController extends ChangeNotifier {
   PipelineState<Uint8List> _elaState = const PipelineIdle<Uint8List>();
   PipelineState<AsciiCrunchResult> _asciiState = const PipelineIdle<AsciiCrunchResult>();
   PipelineState<String> _stringsState = const PipelineIdle<String>();
+  PipelineState<String> _lastVlmState = const PipelineIdle<String>();
 
   ViewMode get activeMode => _activeMode;
   String? get currentPath => _currentPath;
   VlmController get vlmController => _vlmController;
+
+  void _onVlmStateChanged() {
+    // Only notify parent when the pipeline lifecycle state changes,
+    // avoiding high-frequency rebuilds during streaming token accumulation!
+    if (_lastVlmState != _vlmController.state) {
+      _lastVlmState = _vlmController.state;
+      notifyListeners();
+    }
+  }
 
   PipelineState<Uint8List> get elaState => _elaState;
   PipelineState<AsciiCrunchResult> get asciiState => _asciiState;
@@ -317,7 +328,7 @@ class CrunchStateController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _vlmController.removeListener(notifyListeners);
+    _vlmController.removeListener(_onVlmStateChanged);
     _vlmController.dispose();
     super.dispose();
   }

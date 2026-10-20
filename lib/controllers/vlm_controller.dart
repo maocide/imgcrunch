@@ -10,11 +10,9 @@ import 'crunch_state_controller.dart';
 /// Controller managing the VLM (Vision Language Model) inspection state,
 /// persistence, prompt presets, 5-item MRU history, and streaming execution.
 class VlmController extends ChangeNotifier {
-  VlmController({
-    IConfigStorage? configStorage,
-    VlmClient? vlmClient,
-  })  : _configStorage = configStorage ?? FileConfigStorage(),
-        _vlmClient = vlmClient ?? VlmClient();
+  VlmController({IConfigStorage? configStorage, VlmClient? vlmClient})
+    : _configStorage = configStorage ?? FileConfigStorage(),
+      _vlmClient = vlmClient ?? VlmClient();
 
   final IConfigStorage _configStorage;
   final VlmClient _vlmClient;
@@ -43,6 +41,11 @@ class VlmController extends ChangeNotifier {
   bool get isStreaming => _isStreaming;
 
   Stopwatch? _stopwatch;
+  final StreamController<String> _tokenStreamCtrl =
+      StreamController<String>.broadcast();
+
+  /// Broadcast stream emitting individual token chunks as they arrive from the VLM.
+  Stream<String> get tokenStream => _tokenStreamCtrl.stream;
 
   /// Loads configuration from [IConfigStorage].
   Future<void> loadConfig() async {
@@ -125,7 +128,8 @@ class VlmController extends ChangeNotifier {
     }
 
     // Auto-record prompt in MRU history if custom or overridden
-    if (_config.activePreset == VlmPromptPreset.custom || promptOverride != null) {
+    if (_config.activePreset == VlmPromptPreset.custom ||
+        promptOverride != null) {
       await pushPromptHistory(prompt);
     }
 
@@ -133,9 +137,7 @@ class VlmController extends ChangeNotifier {
     _tokenCount = 0;
     _isStreaming = true;
     _stopwatch = Stopwatch()..start();
-    _state = PipelineProcessing<String>(
-      'CONTACTING VLM (${_config.model})...',
-    );
+    _state = PipelineProcessing<String>('CONTACTING VLM (${_config.model})...');
     notifyListeners();
 
     try {
@@ -149,11 +151,7 @@ class VlmController extends ChangeNotifier {
         _accumulatedText += token;
         _tokenCount++;
         _elapsedTime = _stopwatch?.elapsed ?? Duration.zero;
-        final seconds = (_elapsedTime.inMilliseconds / 1000).toStringAsFixed(1);
-        _state = PipelineProcessing<String>(
-          'STREAMING: $_tokenCount TOKENS (${seconds}s)...',
-        );
-        notifyListeners();
+        _tokenStreamCtrl.add(token);
       }
 
       _stopwatch?.stop();
@@ -189,8 +187,15 @@ class VlmController extends ChangeNotifier {
     }
   }
 
+  String? _currentImagePath;
+  String? get currentImagePath => _currentImagePath;
+
   /// Called when the active image changes.
   void onImageChanged(String? newPath) {
+    if (_currentImagePath == newPath && _state is PipelineIdle<String>) {
+      return;
+    }
+    _currentImagePath = newPath;
     abort();
     _state = const PipelineIdle<String>();
     _accumulatedText = '';
@@ -202,6 +207,7 @@ class VlmController extends ChangeNotifier {
   @override
   void dispose() {
     abort();
+    _tokenStreamCtrl.close();
     super.dispose();
   }
 }

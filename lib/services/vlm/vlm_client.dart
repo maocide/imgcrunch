@@ -87,20 +87,30 @@ class VlmClient {
         request.headers['Authorization'] = 'Bearer ${config.apiKey.trim()}';
       }
 
-      final payload = {
-        'model': config.model.trim(),
-        'messages': [
+      final messages = <Map<String, dynamic>>[];
+      if (prompt.trim().isNotEmpty) {
+        messages.add({
+          'role': 'system',
+          'content': prompt.trim(),
+        });
+      }
+      messages.add({
+        'role': 'user',
+        'content': [
           {
-            'role': 'user',
-            'content': [
-              {'type': 'text', 'text': prompt},
-              {
-                'type': 'image_url',
-                'image_url': {'url': dataUri},
-              },
-            ],
+            'type': 'text',
+            'text': 'Analyze and inspect the provided image according to your instructions.',
+          },
+          {
+            'type': 'image_url',
+            'image_url': {'url': dataUri},
           },
         ],
+      });
+
+      final payload = {
+        'model': config.model.trim(),
+        'messages': messages,
         'stream': true,
       };
 

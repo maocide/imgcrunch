@@ -133,6 +133,9 @@ void main() {
         }
       });
 
+      final streamedTokens = <String>[];
+      testController.tokenStream.listen(streamedTokens.add);
+
       final tempDir = await testDirectory();
       final imagePath = '${tempDir.path}/test.png';
       await File(imagePath).writeAsBytes([0x89, 0x50, 0x4E, 0x47]);
@@ -144,6 +147,7 @@ void main() {
 
       expect(testController.state, isA<PipelineReady<String>>());
       expect(testController.accumulatedText, equals('Retro Amiga VLM'));
+      expect(streamedTokens, equals(['Retro ', 'Amiga ', 'VLM']));
       expect(testController.tokenCount, equals(3));
       expect(testController.config.promptHistory, contains('Test Prompt'));
 

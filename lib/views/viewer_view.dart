@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import '../controllers/crunch_state_controller.dart';
 import '../controllers/image_controller.dart';
@@ -19,6 +20,7 @@ import '../widgets/retro_led.dart';
 import '../widgets/retro_floppy_disk.dart';
 import '../widgets/retro_panel.dart';
 import '../widgets/retro_status_bar.dart';
+import 'vlm_view.dart';
 
 class ViewerView extends StatefulWidget {
   final ImageController controller;
@@ -47,9 +49,12 @@ class _ViewerViewState extends State<ViewerView> {
   bool _isDragging = false;
   bool _loadError = false;
 
+  late final ViewerShortcutManager _shortcutManager;
+
   @override
   void initState() {
     super.initState();
+    _shortcutManager = ViewerShortcutManager();
     if (widget.initialMode != null) {
       _crunchController.setMode(widget.initialMode!);
     }
@@ -57,6 +62,7 @@ class _ViewerViewState extends State<ViewerView> {
     _transformController.addListener(_onTransformChange);
     _crunchController.addListener(_onCrunchStateChange);
     _crunchController.onImageChanged(widget.controller.currentPath);
+    _crunchController.vlmController.loadConfig();
     _loadCurrentDimensions();
     _bumpHud();
   }
@@ -64,6 +70,7 @@ class _ViewerViewState extends State<ViewerView> {
   @override
   void dispose() {
     _hudHideTimer?.cancel();
+    _shortcutManager.dispose();
     widget.controller.removeListener(_onImageChange);
     _transformController.removeListener(_onTransformChange);
     _transformController.dispose();
@@ -75,7 +82,15 @@ class _ViewerViewState extends State<ViewerView> {
 
   void _bumpHud() {
     if (!_isHudVisible && mounted) {
-      setState(() => _isHudVisible = true);
+      if (WidgetsBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && !_isHudVisible) {
+            setState(() => _isHudVisible = true);
+          }
+        });
+      } else {
+        setState(() => _isHudVisible = true);
+      }
     }
     _hudHideTimer?.cancel();
     _hudHideTimer = Timer(const Duration(milliseconds: 1200), () {
@@ -88,7 +103,13 @@ class _ViewerViewState extends State<ViewerView> {
   void _onCrunchStateChange() {
     if (!mounted) return;
     _bumpHud();
-    setState(() {});
+    if (WidgetsBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      setState(() {});
+    }
   }
 
   void _loadCurrentDimensions() {
@@ -428,6 +449,17 @@ class _ViewerViewState extends State<ViewerView> {
       return _buildStringsCanvas();
     }
 
+    if (_crunchController.activeMode == ViewMode.vlm) {
+      final path = widget.controller.currentPath;
+      if (path != null) {
+        return VlmView(
+          imagePath: path,
+          crunchController: _crunchController,
+          naturalSize: _naturalSize,
+        );
+      }
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final viewportSize = Size(constraints.maxWidth, constraints.maxHeight);
@@ -673,78 +705,91 @@ class _ViewerViewState extends State<ViewerView> {
       scale: _currentScale,
     );
 
+    final shortcutBindings = <ShortcutActivator, VoidCallback>{
+      const SingleActivator(LogicalKeyboardKey.escape): _handleEscape,
+      const SingleActivator(LogicalKeyboardKey.keyH): _showHelpDialog,
+      const SingleActivator(LogicalKeyboardKey.arrowRight): () {
+        _bumpHud();
+        c.next();
+      },
+      const SingleActivator(LogicalKeyboardKey.space): () {
+        _bumpHud();
+        c.next();
+      },
+      const SingleActivator(LogicalKeyboardKey.arrowLeft): () {
+        _bumpHud();
+        c.previous();
+      },
+      const SingleActivator(LogicalKeyboardKey.backspace): () {
+        _bumpHud();
+        c.previous();
+      },
+      const SingleActivator(LogicalKeyboardKey.digit0): _resetTransform,
+      const SingleActivator(LogicalKeyboardKey.keyR): _resetTransform,
+      const SingleActivator(LogicalKeyboardKey.digit1): () {
+        _bumpHud();
+        _crunchController.setMode(ViewMode.normal);
+      },
+      const SingleActivator(LogicalKeyboardKey.digit2): () {
+        _bumpHud();
+        _crunchController.setMode(ViewMode.ela);
+      },
+      const SingleActivator(LogicalKeyboardKey.digit3): () {
+        _bumpHud();
+        _crunchController.setMode(ViewMode.ascii);
+      },
+      const SingleActivator(LogicalKeyboardKey.digit4): () {
+        _bumpHud();
+        _crunchController.setMode(ViewMode.strings);
+      },
+      const SingleActivator(LogicalKeyboardKey.digit5): () {
+        _bumpHud();
+        _crunchController.setMode(ViewMode.vlm);
+      },
+      const SingleActivator(LogicalKeyboardKey.keyM): _showMenu,
+      const SingleActivator(LogicalKeyboardKey.keyO): _pickImageFile,
+      const SingleActivator(LogicalKeyboardKey.keyO, control: true):
+          _pickImageFile,
+      const SingleActivator(LogicalKeyboardKey.keyO, alt: true):
+          _showOpenPathDialog,
+      const SingleActivator(LogicalKeyboardKey.keyS): () {
+        _bumpHud();
+        c.cycleSortCriterion();
+      },
+      const SingleActivator(LogicalKeyboardKey.keyS, shift: true): () {
+        _bumpHud();
+        c.toggleSortDirection();
+      },
+      const SingleActivator(LogicalKeyboardKey.f5): () {
+        _bumpHud();
+        c.refresh();
+      },
+      const SingleActivator(LogicalKeyboardKey.keyC, control: true):
+          _copyContent,
+      const SingleActivator(LogicalKeyboardKey.keyV, control: true):
+          _pasteImageFromClipboard,
+    };
+
+    _shortcutManager.shortcuts = <ShortcutActivator, Intent>{
+      for (final entry in shortcutBindings.entries)
+        entry.key: _ViewerShortcutIntent(entry.value),
+    };
+
     return Title(
       title: windowTitle,
       color: const Color(0xFF000000),
-      child: CallbackShortcuts(
-        bindings: {
-        const SingleActivator(LogicalKeyboardKey.escape): _handleEscape,
-        const SingleActivator(LogicalKeyboardKey.keyH): _showHelpDialog,
-        const SingleActivator(LogicalKeyboardKey.arrowRight): () {
-          _bumpHud();
-          c.next();
-        },
-        const SingleActivator(LogicalKeyboardKey.space): () {
-          _bumpHud();
-          c.next();
-        },
-        const SingleActivator(LogicalKeyboardKey.arrowLeft): () {
-          _bumpHud();
-          c.previous();
-        },
-        const SingleActivator(LogicalKeyboardKey.backspace): () {
-          _bumpHud();
-          c.previous();
-        },
-        const SingleActivator(LogicalKeyboardKey.digit0): _resetTransform,
-        const SingleActivator(LogicalKeyboardKey.keyR): _resetTransform,
-        const SingleActivator(LogicalKeyboardKey.digit1): () {
-          _bumpHud();
-          _crunchController.setMode(ViewMode.normal);
-        },
-        const SingleActivator(LogicalKeyboardKey.digit2): () {
-          _bumpHud();
-          _crunchController.setMode(ViewMode.ela);
-        },
-        const SingleActivator(LogicalKeyboardKey.digit3): () {
-          _bumpHud();
-          _crunchController.setMode(ViewMode.ascii);
-        },
-        const SingleActivator(LogicalKeyboardKey.digit4): () {
-          _bumpHud();
-          _crunchController.setMode(ViewMode.strings);
-        },
-        const SingleActivator(LogicalKeyboardKey.digit5): () {
-          _bumpHud();
-          _crunchController.setMode(ViewMode.vlm);
-        },
-        const SingleActivator(LogicalKeyboardKey.keyM): _showMenu,
-        const SingleActivator(LogicalKeyboardKey.keyO): _pickImageFile,
-        const SingleActivator(LogicalKeyboardKey.keyO, control: true):
-            _pickImageFile,
-        const SingleActivator(LogicalKeyboardKey.keyO, alt: true):
-            _showOpenPathDialog,
-        const SingleActivator(LogicalKeyboardKey.keyS): () {
-          _bumpHud();
-          c.cycleSortCriterion();
-        },
-        const SingleActivator(LogicalKeyboardKey.keyS, shift: true): () {
-          _bumpHud();
-          c.toggleSortDirection();
-        },
-        const SingleActivator(LogicalKeyboardKey.f5): () {
-          _bumpHud();
-          c.refresh();
-        },
-        const SingleActivator(LogicalKeyboardKey.keyC, control: true):
-            _copyContent,
-        const SingleActivator(LogicalKeyboardKey.keyV, control: true):
-            _pasteImageFromClipboard,
-      },
-      child: Focus(
-        focusNode: _focusNode,
-        autofocus: true,
-        child: DropTarget(
+      child: Shortcuts.manager(
+        manager: _shortcutManager,
+        child: Actions(
+          actions: <Type, Action<Intent>>{
+            _ViewerShortcutIntent: CallbackAction<_ViewerShortcutIntent>(
+              onInvoke: (_ViewerShortcutIntent intent) => intent.callback(),
+            ),
+          },
+          child: Focus(
+            focusNode: _focusNode,
+            autofocus: true,
+            child: DropTarget(
           onDragEntered: (_) => setState(() => _isDragging = true),
           onDragExited: (_) => setState(() => _isDragging = false),
           onDragDone: (detail) {
@@ -922,6 +967,7 @@ class _ViewerViewState extends State<ViewerView> {
         ),
       ),
     ),
+    ),
     );
   }
 
@@ -938,3 +984,27 @@ class _ViewerViewState extends State<ViewerView> {
     RetroDialogHelper.showHelpDialog(context);
   }
 }
+
+/// Custom ShortcutManager that detects when any editable text field has active focus.
+/// In that state, global single-key and clipboard image shortcuts are ignored
+/// so typing, pasting, and text editing works seamlessly.
+class ViewerShortcutManager extends ShortcutManager {
+  ViewerShortcutManager({super.shortcuts});
+
+  @override
+  KeyEventResult handleKeypress(BuildContext context, KeyEvent event) {
+    final primaryFocus = FocusManager.instance.primaryFocus;
+    final widget = primaryFocus?.context?.widget;
+    if (widget is EditableText ||
+        (primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() != null)) {
+      return KeyEventResult.ignored;
+    }
+    return super.handleKeypress(context, event);
+  }
+}
+
+class _ViewerShortcutIntent extends Intent {
+  const _ViewerShortcutIntent(this.callback);
+  final VoidCallback callback;
+}
+
