@@ -1,14 +1,14 @@
 use std::path::Path;
 use std::{fs, time::SystemTime};
 
-pub enum SortOrder {
+enum SortOrder {
     Name,
     Size,
     Modified,
     Created,
 }
 
-pub enum SortDirection {
+enum SortDirection {
     Asc,
     Desc,
 }
@@ -24,13 +24,13 @@ struct FileByDate {
 
 const VALID_EXTENSIONS: &[&str; 6] = &["png", "gif", "bmp", "jpeg", "jpg", "webp"];
 
-pub fn is_valid_ext(ext: &str) -> bool {
+fn is_valid_ext(ext: &str) -> bool {
     return VALID_EXTENSIONS
         .iter()
         .any(|&valid_ext| ext.eq_ignore_ascii_case(valid_ext));
 }
 
-pub fn is_valid_path(entry: &std::fs::DirEntry) -> bool {
+fn is_valid_path(entry: &std::fs::DirEntry) -> bool {
     // avoid symlinks/dirs
     if let Ok(f_type) = entry.file_type() {
         if !f_type.is_file() {
@@ -79,8 +79,12 @@ pub fn list_files(path: &str, order: u8, direction: u8) -> Result<Vec<String>, S
                 .collect();
 
             match sort_direction {
-                SortDirection::Asc => valid_paths.sort_by(|a, b| a.cmp(b)),
-                SortDirection::Desc => valid_paths.sort_by(|a, b| b.cmp(a)),
+                SortDirection::Asc => {
+                    valid_paths.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()))
+                }
+                SortDirection::Desc => {
+                    valid_paths.sort_by(|a, b| b.to_lowercase().cmp(&a.to_lowercase()))
+                }
             };
 
             valid_paths
@@ -128,7 +132,7 @@ pub fn list_files(path: &str, order: u8, direction: u8) -> Result<Vec<String>, S
 
                     Some(FileByDate {
                         name: name,
-                        date: metadata.created().or_else(|_| metadata.modified()).ok()?,
+                        date: metadata.modified().or_else(|_| metadata.created()).ok()?,
                         // tries created time. if the fs does not support it, falls back to modified time
                     })
                 })
@@ -158,7 +162,8 @@ pub fn list_files(path: &str, order: u8, direction: u8) -> Result<Vec<String>, S
 
                     Some(FileByDate {
                         name: name,
-                        date: metadata.created().ok()?,
+                        date: metadata.created().or_else(|_| metadata.modified()).ok()?,
+                        // tries created time. if the fs does not support it, falls back to modified time
                     })
                 })
                 .collect();

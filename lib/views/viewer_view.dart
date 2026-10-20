@@ -11,6 +11,7 @@ import '../utils/clipboard_helper.dart';
 import '../utils/file_dialog_helper.dart';
 import '../utils/image_matrix_helper.dart';
 import '../utils/retro_dialog_helper.dart';
+import '../utils/window_title_helper.dart';
 import '../widgets/amiga_copper_background.dart';
 import '../widgets/retro_command_deck.dart';
 import '../widgets/retro_button.dart';
@@ -77,7 +78,7 @@ class _ViewerViewState extends State<ViewerView> {
       setState(() => _isHudVisible = true);
     }
     _hudHideTimer?.cancel();
-    _hudHideTimer = Timer(const Duration(milliseconds: 2500), () {
+    _hudHideTimer = Timer(const Duration(milliseconds: 1200), () {
       if (mounted && _isHudVisible) {
         setState(() => _isHudVisible = false);
       }
@@ -653,8 +654,27 @@ class _ViewerViewState extends State<ViewerView> {
         isNormalLoading ||
         (_crunchController.activeState is PipelineProcessing);
 
-    return CallbackShortcuts(
-      bindings: {
+    final windowTitle = WindowTitleHelper.formatTitle(
+      hasImages: c.hasImages,
+      fileName: c.currentFileName,
+      currentIndex: c.currentIndex,
+      totalCount: c.playlist.length,
+      scale: _currentScale,
+    );
+
+    WindowTitleHelper.updateTitle(
+      hasImages: c.hasImages,
+      fileName: c.currentFileName,
+      currentIndex: c.currentIndex,
+      totalCount: c.playlist.length,
+      scale: _currentScale,
+    );
+
+    return Title(
+      title: windowTitle,
+      color: const Color(0xFF000000),
+      child: CallbackShortcuts(
+        bindings: {
         const SingleActivator(LogicalKeyboardKey.escape): _handleEscape,
         const SingleActivator(LogicalKeyboardKey.keyH): _showHelpDialog,
         const SingleActivator(LogicalKeyboardKey.arrowRight): () {
@@ -697,6 +717,18 @@ class _ViewerViewState extends State<ViewerView> {
             _pickImageFile,
         const SingleActivator(LogicalKeyboardKey.keyO, alt: true):
             _showOpenPathDialog,
+        const SingleActivator(LogicalKeyboardKey.keyS): () {
+          _bumpHud();
+          c.cycleSortCriterion();
+        },
+        const SingleActivator(LogicalKeyboardKey.keyS, shift: true): () {
+          _bumpHud();
+          c.toggleSortDirection();
+        },
+        const SingleActivator(LogicalKeyboardKey.f5): () {
+          _bumpHud();
+          c.refresh();
+        },
         const SingleActivator(LogicalKeyboardKey.keyC, control: true):
             _copyContent,
         const SingleActivator(LogicalKeyboardKey.keyV, control: true):
@@ -805,22 +837,26 @@ class _ViewerViewState extends State<ViewerView> {
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(width: 10),
-                                      Container(
-                                        width: 1,
-                                        height: 12,
-                                        color: context.wireframeCyanDim,
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Text(
-                                        c.currentFileName,
-                                        style: const TextStyle(
-                                          fontFamily: 'monospace',
-                                          fontSize: 11,
-                                          color: Colors.white,
-                                          letterSpacing: 0.5,
+
+                                      if (c.playlist.isNotEmpty) ...[
+                                        const SizedBox(width: 10),
+                                        Container(
+                                          width: 1,
+                                          height: 12,
+                                          color: context.wireframeCyanDim,
                                         ),
-                                      ),
+                                        const SizedBox(width: 10),
+                                        Text(
+                                          'TRK: ${c.currentIndex + 1}/${c.playlist.length}',
+                                          style: const TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.xCopyAmber,
+                                            letterSpacing: 1.0,
+                                          ),
+                                        ),
+                                      ],
                                       const SizedBox(width: 10),
                                       Container(
                                         width: 1,
@@ -829,7 +865,7 @@ class _ViewerViewState extends State<ViewerView> {
                                       ),
                                       const SizedBox(width: 10),
                                       Text(
-                                        '${(_currentScale * 100).toInt()}%',
+                                        'Z: ${(_currentScale * 100).toInt()}%',
                                         style: const TextStyle(
                                           fontFamily: 'monospace',
                                           fontSize: 11,
@@ -855,6 +891,12 @@ class _ViewerViewState extends State<ViewerView> {
                     zoomScale: _currentScale,
                     currentIndex: c.currentIndex,
                     totalCount: c.playlist.length,
+                    sortLabel: c.hasImages ? c.sortCriterionLabel : null,
+                    sortDirection: c.hasImages ? c.sortDirectionArrow : null,
+                    onSortTap: () {
+                      _bumpHud();
+                      c.cycleSortCriterion();
+                    },
                     trailing: RetroButton(
                       label: 'MENU',
                       shortcut: 'M',
@@ -872,6 +914,7 @@ class _ViewerViewState extends State<ViewerView> {
           ),
         ),
       ),
+    ),
     );
   }
 

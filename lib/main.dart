@@ -27,7 +27,7 @@ Future<void> main(List<String> args) async {
   // Interactive GUI mode
   final controller = ImageController();
   if (cli.inputPath != null) {
-    controller.loadPath(cli.inputPath!);
+    await controller.loadPath(cli.inputPath!);
   }
 
   runApp(ImgCrunchApp(

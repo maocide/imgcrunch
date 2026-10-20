@@ -157,6 +157,20 @@ class RetroDialogHelper {
                         ),
                         TableRow(
                           children: [
+                            _HelpKey('S / SHIFT+S'),
+                            _HelpDesc(
+                              'Cycle Sort (Name/Date/Size) / Toggle Direction',
+                            ),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
+                            _HelpKey('F5'),
+                            _HelpDesc('Refresh Directory Playlist'),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
                             _HelpKey('ESC'),
                             _HelpDesc('Close Dialog / Exit Station'),
                           ],

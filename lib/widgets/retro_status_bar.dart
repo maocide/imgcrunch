@@ -8,6 +8,9 @@ class RetroStatusBar extends StatelessWidget {
   final double? zoomScale;
   final int? currentIndex;
   final int? totalCount;
+  final String? sortLabel;
+  final String? sortDirection;
+  final VoidCallback? onSortTap;
   final Widget? trailing;
 
   const RetroStatusBar({
@@ -18,6 +21,9 @@ class RetroStatusBar extends StatelessWidget {
     this.zoomScale,
     this.currentIndex,
     this.totalCount,
+    this.sortLabel,
+    this.sortDirection,
+    this.onSortTap,
     this.trailing,
   });
 
@@ -45,11 +51,13 @@ class RetroStatusBar extends StatelessWidget {
           final showResolution = w > 520 && resStr != null;
           final showZoom = w > 360 && zoomStr != null;
           final showTrack = w > 270 && trackStr != null;
+          final showSort = w > 380 && sortLabel != null;
           final showSecondary = w > 640 && secondaryText != null;
 
           final resPrefix = isCompact ? 'R: ' : 'RES: ';
           final zoomPrefix = isCompact ? 'Z: ' : 'ZOOM: ';
           final trackPrefix = isCompact ? 'TRK: ' : 'TRACK: ';
+          final sortPrefix = isCompact ? 'S: ' : 'SORT: ';
 
           return Row(
             children: [
@@ -174,6 +182,38 @@ class RetroStatusBar extends StatelessWidget {
                             color: AppTheme.xCopyAmber,
                             letterSpacing: 1.0,
                           ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              if (showSort) ...[
+                const SizedBox(width: 12),
+                InkWell(
+                  onTap: onSortTap,
+                  borderRadius: BorderRadius.zero,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        sortPrefix,
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 11,
+                          color: context.wireframeCyanDim,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      Text(
+                        '$sortLabel ${sortDirection ?? ""}'.trim(),
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.xCopyAmber,
+                          letterSpacing: 1.0,
                         ),
                       ),
                     ],

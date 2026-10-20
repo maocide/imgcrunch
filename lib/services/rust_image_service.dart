@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import '../src/rust/api/ascii.dart' as rust_ascii;
 import '../src/rust/api/ela.dart' as rust_ela;
+import '../src/rust/api/playlist.dart' as rust_playlist;
 import '../src/rust/api/strings.dart' as rust_strings;
 
 /// Singleton service wrapping all Rust FFI operations for image crunching and forensics.
@@ -117,5 +118,20 @@ class RustImageService {
     }
     final bytes = await file.readAsBytes();
     return await extractStringsFromBytes(bytes, minLen: minLen);
+  }
+
+  /// Lists and sorts supported image files in [dirPath] using native Rust.
+  /// [order]: 0 = Name, 1 = Size, 2 = Modified.
+  /// [direction]: 0 = Ascending, 1 = Descending.
+  Future<List<String>> listFiles(
+    String dirPath, {
+    int order = 0,
+    int direction = 0,
+  }) async {
+    return await rust_playlist.listFiles(
+      path: dirPath,
+      order: order,
+      direction: direction,
+    );
   }
 }

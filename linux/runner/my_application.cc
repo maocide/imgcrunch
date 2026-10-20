@@ -19,6 +19,23 @@ static void first_frame_cb(MyApplication *self, FlView *view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
 }
 
+// Method channel handler for window operations (e.g. setting title across XFCE/X11/Wayland).
+static void window_channel_method_call_cb(FlMethodChannel *channel,
+                                          FlMethodCall *method_call,
+                                          gpointer user_data) {
+  const gchar *method = fl_method_call_get_name(method_call);
+  if (strcmp(method, "setTitle") == 0) {
+    FlValue *args = fl_method_call_get_args(method_call);
+    if (args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_STRING) {
+      GtkWindow *window = GTK_WINDOW(user_data);
+      gtk_window_set_title(window, fl_value_get_string(args));
+    }
+    fl_method_call_respond_success(method_call, nullptr, nullptr);
+  } else {
+    fl_method_call_respond_not_implemented(method_call, nullptr);
+  }
+}
+
 // Implements GApplication::activate.
 static void my_application_activate(GApplication *application) {
   MyApplication *self = MY_APPLICATION(application);
@@ -55,6 +72,7 @@ static void my_application_activate(GApplication *application) {
     gtk_header_bar_set_title(header_bar, "imgcrunch");
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
+    g_object_bind_property(window, "title", header_bar, "title", G_BINDING_DEFAULT);
   } else {
     gtk_window_set_title(window, "imgcrunch");
   }
@@ -81,6 +99,13 @@ static void my_application_activate(GApplication *application) {
   gtk_widget_realize(GTK_WIDGET(view));
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+
+  g_autoptr(FlStandardMethodCodec) window_codec = fl_standard_method_codec_new();
+  g_autoptr(FlMethodChannel) window_channel = fl_method_channel_new(
+      fl_engine_get_binary_messenger(fl_view_get_engine(view)),
+      "imgcrunch/window", FL_METHOD_CODEC(window_codec));
+  fl_method_channel_set_method_call_handler(
+      window_channel, window_channel_method_call_cb, window, nullptr);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
