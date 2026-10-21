@@ -88,5 +88,49 @@ void main() {
       final garbage = Uint8List.fromList([0x00, 0x01, 0x02, 0x03]);
       expect(ImageMatrixHelper.tryParseHeader(garbage), isNull);
     });
+
+    test('viewportToImagePixel maps coordinates with scale and translation', () {
+      const imageSize = Size(100, 100);
+      // Translation (50, 50), scale 2.0
+      final matrix = Matrix4.identity()
+        ..translateByDouble(50.0, 50.0, 0.0, 1.0)
+        ..scaleByDouble(2.0, 2.0, 1.0, 1.0);
+
+      // Viewport at (50, 50) maps to image pixel (0, 0)
+      final p0 = ImageMatrixHelper.viewportToImagePixel(
+        transformMatrix: matrix,
+        viewportPosition: const Offset(50, 50),
+        imageSize: imageSize,
+      );
+      expect(p0, isNotNull);
+      expect(p0!.x, equals(0));
+      expect(p0.y, equals(0));
+
+      // Viewport at (70, 90) -> (70-50)/2 = 10, (90-50)/2 = 20
+      final p1 = ImageMatrixHelper.viewportToImagePixel(
+        transformMatrix: matrix,
+        viewportPosition: const Offset(70, 90),
+        imageSize: imageSize,
+      );
+      expect(p1, isNotNull);
+      expect(p1!.x, equals(10));
+      expect(p1.y, equals(20));
+
+      // Out of bounds: viewport at (0, 0) -> negative coordinate -> null
+      final pOut1 = ImageMatrixHelper.viewportToImagePixel(
+        transformMatrix: matrix,
+        viewportPosition: const Offset(0, 0),
+        imageSize: imageSize,
+      );
+      expect(pOut1, isNull);
+
+      // Out of bounds: beyond width -> (50 + 200, 50) is right at edge (100) -> null
+      final pOut2 = ImageMatrixHelper.viewportToImagePixel(
+        transformMatrix: matrix,
+        viewportPosition: const Offset(250, 50),
+        imageSize: imageSize,
+      );
+      expect(pOut2, isNull);
+    });
   });
 }

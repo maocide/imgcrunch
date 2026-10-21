@@ -19,6 +19,8 @@ class RetroCommandDeck extends StatelessWidget {
   final VoidCallback onPaste;
   final VoidCallback onShowHelp;
   final VoidCallback onQuit;
+  final VoidCallback? onToggleEyedropper;
+  final bool isEyedropperActive;
 
   const RetroCommandDeck({
     super.key,
@@ -32,6 +34,8 @@ class RetroCommandDeck extends StatelessWidget {
     required this.onPaste,
     required this.onShowHelp,
     required this.onQuit,
+    this.onToggleEyedropper,
+    this.isEyedropperActive = false,
   });
 
   @override
@@ -196,6 +200,19 @@ class RetroCommandDeck extends StatelessWidget {
                   onResetZoom();
                   Navigator.of(context).pop();
                 },
+              ),
+              RetroButton(
+                icon: Icons.colorize_rounded,
+                label: 'PICKER',
+                shortcut: 'P',
+                textColor: AppTheme.xCopyCyan,
+                isSelected: isEyedropperActive,
+                onPressed: c.hasImages && onToggleEyedropper != null
+                    ? () {
+                        Navigator.of(context).pop();
+                        onToggleEyedropper!();
+                      }
+                    : null,
               ),
               RetroButton(
                 icon: Icons.copy_rounded,

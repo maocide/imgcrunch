@@ -113,6 +113,14 @@ class RetroDialogHelper {
                         ),
                         TableRow(
                           children: [
+                            _HelpKey('P'),
+                            _HelpDesc(
+                              'Toggle Pixel Eyedropper & Loupe (Click copies #HEX)',
+                            ),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
                             _HelpKey('O'),
                             _HelpDesc('Open Single Image File'),
                           ],

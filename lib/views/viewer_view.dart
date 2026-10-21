@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import '../controllers/crunch_state_controller.dart';
 import '../controllers/image_controller.dart';
+import '../services/pixel_reader.dart';
 import '../theme/app_theme.dart';
 import '../utils/clipboard_helper.dart';
 import '../utils/file_dialog_helper.dart';
@@ -19,6 +21,7 @@ import '../widgets/retro_button.dart';
 import '../widgets/retro_led.dart';
 import '../widgets/retro_floppy_disk.dart';
 import '../widgets/retro_panel.dart';
+import '../widgets/retro_pixel_loupe.dart';
 import '../widgets/retro_status_bar.dart';
 import 'vlm_view.dart';
 
@@ -48,6 +51,11 @@ class _ViewerViewState extends State<ViewerView> {
   Size? _lastViewportSize;
   bool _isDragging = false;
   bool _loadError = false;
+
+  bool _isEyedropperActive = false;
+  PixelBuffer? _pixelBuffer;
+  Point<int>? _hoveredPixel;
+  Offset? _hoveredScreenPos;
 
   late final ViewerShortcutManager _shortcutManager;
 
@@ -102,6 +110,14 @@ class _ViewerViewState extends State<ViewerView> {
 
   void _onCrunchStateChange() {
     if (!mounted) return;
+    if (_isEyedropperActive &&
+        (_crunchController.activeMode == ViewMode.strings ||
+            _crunchController.activeMode == ViewMode.vlm)) {
+      _isEyedropperActive = false;
+      _hoveredPixel = null;
+      _hoveredScreenPos = null;
+      _pixelBuffer = null;
+    }
     _bumpHud();
     if (WidgetsBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -129,14 +145,99 @@ class _ViewerViewState extends State<ViewerView> {
     });
   }
 
+  void _loadCurrentPixelBuffer() {
+    final path = widget.controller.currentPath;
+    if (path == null) {
+      _pixelBuffer = null;
+      return;
+    }
+    PixelBuffer.loadFromFile(path).then((buffer) {
+      if (!mounted || widget.controller.currentPath != path) {
+        return;
+      }
+      setState(() {
+        _pixelBuffer = buffer;
+      });
+    }).catchError((_) {
+      if (mounted && widget.controller.currentPath == path) {
+        setState(() {
+          _pixelBuffer = null;
+        });
+      }
+    });
+  }
+
   void _onImageChange() {
     setState(() {
       _naturalSize = null;
       _loadError = false;
+      _pixelBuffer = null;
+      _hoveredPixel = null;
+      _hoveredScreenPos = null;
     });
     _crunchController.onImageChanged(widget.controller.currentPath);
     _loadCurrentDimensions();
+    if (_isEyedropperActive) {
+      _loadCurrentPixelBuffer();
+    }
     _bumpHud();
+  }
+
+  void _toggleEyedropper() {
+    if (!widget.controller.hasImages) return;
+    if (_crunchController.activeMode == ViewMode.strings ||
+        _crunchController.activeMode == ViewMode.vlm) {
+      return;
+    }
+    _bumpHud();
+    setState(() {
+      _isEyedropperActive = !_isEyedropperActive;
+      if (!_isEyedropperActive) {
+        _hoveredPixel = null;
+        _hoveredScreenPos = null;
+        _pixelBuffer = null;
+      } else {
+        _loadCurrentPixelBuffer();
+      }
+    });
+  }
+
+  Future<void> _handlePixelClick(Point<int> pixel) async {
+    if (_pixelBuffer == null) return;
+    final hex = _pixelBuffer!.getHex(pixel.x, pixel.y);
+    await Clipboard.setData(ClipboardData(text: hex));
+    if (!mounted) return;
+    _bumpHud();
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: AppTheme.xCopySteelDark,
+        duration: const Duration(seconds: 2),
+        content: Row(
+          children: [
+            Container(
+              width: 14,
+              height: 14,
+              decoration: BoxDecoration(
+                color: _pixelBuffer!.getPixel(pixel.x, pixel.y),
+                border: Border.all(color: Colors.white, width: 1),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'PIXEL $hex COPIED (X:${pixel.x}, Y:${pixel.y})',
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.xCopyGreen,
+                letterSpacing: 1.0,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _onTransformChange() {
@@ -241,6 +342,8 @@ class _ViewerViewState extends State<ViewerView> {
         onPaste: _pasteImageFromClipboard,
         onShowHelp: _showHelpDialog,
         onQuit: _handleEscape,
+        onToggleEyedropper: _toggleEyedropper,
+        isEyedropperActive: _isEyedropperActive,
       ),
     );
   }
@@ -639,38 +742,73 @@ class _ViewerViewState extends State<ViewerView> {
           minScale: 0.02,
           maxScale: 50.0,
           scaleEnabled: false,
-          panEnabled: true,
+          panEnabled: !_isEyedropperActive,
           constrained: false,
           child: content,
         );
 
-        return Listener(
-          onPointerSignal: (event) {
-            if (event is PointerScrollEvent) {
-              final isCtrl = HardwareKeyboard.instance.isControlPressed;
-              if (isCtrl) {
-                final factor = event.scrollDelta.dy < 0 ? 1.15 : 0.87;
-                _zoomAt(event.localPosition, factor);
-              } else {
-                if (event.scrollDelta.dy > 0) {
-                  widget.controller.next();
-                } else if (event.scrollDelta.dy < 0) {
-                  widget.controller.previous();
-                }
+        return MouseRegion(
+          cursor: _isEyedropperActive
+              ? SystemMouseCursors.precise
+              : MouseCursor.defer,
+          onHover: (event) {
+            if (_isEyedropperActive && _naturalSize != null) {
+              final p = ImageMatrixHelper.viewportToImagePixel(
+                transformMatrix: _transformController.value,
+                viewportPosition: event.localPosition,
+                imageSize: _naturalSize!,
+              );
+              if (p != _hoveredPixel || event.localPosition != _hoveredScreenPos) {
+                setState(() {
+                  _hoveredPixel = p;
+                  _hoveredScreenPos = event.localPosition;
+                });
               }
             }
           },
-          onPointerDown: (event) {
-            if (event.buttons == kMiddleMouseButton) {
-              _resetTransform();
+          onExit: (_) {
+            if (_hoveredPixel != null || _hoveredScreenPos != null) {
+              setState(() {
+                _hoveredPixel = null;
+                _hoveredScreenPos = null;
+              });
             }
           },
-          child: GestureDetector(
-            onDoubleTap: () {
-              final isCloseToActual = (_currentScale - 1.0).abs() < 0.05;
-              _resetTransform(actualSize: !isCloseToActual);
+          child: Listener(
+            onPointerSignal: (event) {
+              if (event is PointerScrollEvent) {
+                final isCtrl = HardwareKeyboard.instance.isControlPressed;
+                if (isCtrl) {
+                  final factor = event.scrollDelta.dy < 0 ? 1.15 : 0.87;
+                  _zoomAt(event.localPosition, factor);
+                } else {
+                  if (event.scrollDelta.dy > 0) {
+                    widget.controller.next();
+                  } else if (event.scrollDelta.dy < 0) {
+                    widget.controller.previous();
+                  }
+                }
+              }
             },
-            child: interactive,
+            onPointerDown: (event) {
+              if (event.buttons == kMiddleMouseButton) {
+                _resetTransform();
+              } else if (_isEyedropperActive &&
+                  event.buttons == kPrimaryMouseButton &&
+                  _hoveredPixel != null) {
+                _handlePixelClick(_hoveredPixel!);
+              }
+            },
+            child: GestureDetector(
+              onDoubleTap: _isEyedropperActive
+                  ? null
+                  : () {
+                      final isCloseToActual =
+                          (_currentScale - 1.0).abs() < 0.05;
+                      _resetTransform(actualSize: !isCloseToActual);
+                    },
+              child: interactive,
+            ),
           ),
         );
       },
@@ -746,6 +884,7 @@ class _ViewerViewState extends State<ViewerView> {
         _bumpHud();
         _crunchController.setMode(ViewMode.vlm);
       },
+      const SingleActivator(LogicalKeyboardKey.keyP): _toggleEyedropper,
       const SingleActivator(LogicalKeyboardKey.keyM): _showMenu,
       const SingleActivator(LogicalKeyboardKey.keyO): _pickImageFile,
       const SingleActivator(LogicalKeyboardKey.keyO, control: true):
@@ -890,6 +1029,32 @@ class _ViewerViewState extends State<ViewerView> {
                                         ),
                                       ),
 
+                                      if (_isEyedropperActive) ...[
+                                        const SizedBox(width: 10),
+                                        Container(
+                                          width: 1,
+                                          height: 12,
+                                          color: context.wireframeCyanDim,
+                                        ),
+                                        const SizedBox(width: 10),
+                                        const RetroLed(
+                                          isActive: true,
+                                          size: 7,
+                                          activeColor: AppTheme.xCopyCyan,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        const Text(
+                                          'PICKER',
+                                          style: TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 1.2,
+                                            color: AppTheme.xCopyCyan,
+                                          ),
+                                        ),
+                                      ],
+
                                       if (c.playlist.isNotEmpty) ...[
                                         const SizedBox(width: 10),
                                         Container(
@@ -932,13 +1097,43 @@ class _ViewerViewState extends State<ViewerView> {
                               ),
                             ),
                           ),
+
+                        // Pixel Eyedropper Loupe
+                        if (_isEyedropperActive &&
+                            _hoveredPixel != null &&
+                            _pixelBuffer != null &&
+                            _lastViewportSize != null)
+                          RetroPixelLoupe(
+                            pixelCoordinates: _hoveredPixel!,
+                            color: _pixelBuffer!.getPixel(
+                              _hoveredPixel!.x,
+                              _hoveredPixel!.y,
+                            ),
+                            hexCode: _pixelBuffer!.getHex(
+                              _hoveredPixel!.x,
+                              _hoveredPixel!.y,
+                            ),
+                            rgbText: _pixelBuffer!.getRgb(
+                              _hoveredPixel!.x,
+                              _hoveredPixel!.y,
+                            ),
+                            patch: _pixelBuffer!.getPatch(
+                              _hoveredPixel!.x,
+                              _hoveredPixel!.y,
+                              radius: 4,
+                            ),
+                            screenPosition: _hoveredScreenPos ?? Offset.zero,
+                            viewportSize: _lastViewportSize!,
+                          ),
                       ],
                     ),
                   ),
 
                   // Permanent Bottom Retro Status Bar (solid console base)
                   RetroStatusBar(
-                    statusText: _getStatusMessage(c),
+                    statusText: _isEyedropperActive
+                        ? 'MODE: PIXEL EYEDROPPER & LOUPE // [CLICK] COPY HEX // [P/ESC] EXIT'
+                        : _getStatusMessage(c),
                     dimensions: _naturalSize,
                     zoomScale: _currentScale,
                     currentIndex: c.currentIndex,
@@ -972,6 +1167,15 @@ class _ViewerViewState extends State<ViewerView> {
   }
 
   void _handleEscape() {
+    if (_isEyedropperActive) {
+      setState(() {
+        _isEyedropperActive = false;
+        _hoveredPixel = null;
+        _hoveredScreenPos = null;
+        _pixelBuffer = null;
+      });
+      return;
+    }
     if (Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
     } else {

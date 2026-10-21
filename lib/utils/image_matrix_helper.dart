@@ -228,4 +228,32 @@ class ImageMatrixHelper {
 
     return t1 * s * t2 * currentMatrix;
   }
+
+  /// Converts a viewport-space coordinate (e.g. mouse cursor position) to
+  /// original image-space pixel coordinate using the inverse of [transformMatrix].
+  ///
+  /// Returns `null` if the point falls outside the [imageSize] bounds or if
+  /// the matrix is not invertible.
+  static Point<int>? viewportToImagePixel({
+    required Matrix4 transformMatrix,
+    required Offset viewportPosition,
+    required Size imageSize,
+  }) {
+    if (imageSize.width <= 0 || imageSize.height <= 0) return null;
+
+    final inverse = Matrix4.tryInvert(transformMatrix);
+    if (inverse == null) return null;
+
+    final imagePoint = MatrixUtils.transformPoint(inverse, viewportPosition);
+    final x = imagePoint.dx.floor();
+    final y = imagePoint.dy.floor();
+
+    if (x < 0 ||
+        y < 0 ||
+        x >= imageSize.width.toInt() ||
+        y >= imageSize.height.toInt()) {
+      return null;
+    }
+    return Point<int>(x, y);
+  }
 }
