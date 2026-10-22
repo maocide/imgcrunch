@@ -20,6 +20,8 @@ class ImageController extends ChangeNotifier {
   List<String> _playlist = [];
   int _currentIndex = 0;
   String? _currentDirectory;
+  int _operationId = 0;
+  bool _isLoadingPath = false;
 
   PlaylistSortCriterion _sortCriterion = PlaylistSortCriterion.name;
   PlaylistSortDirection _sortDirection = PlaylistSortDirection.ascending;
@@ -28,11 +30,9 @@ class ImageController extends ChangeNotifier {
 
   ImageController({
     bool enableWatcher = true,
-    bool autoRegisterLifecycle = true,
   }) {
     watcherManager = DirectoryWatcherManager(
       onRefreshRequested: refresh,
-      autoRegisterObserver: autoRegisterLifecycle,
     );
     if (!enableWatcher) {
       watcherManager.setWatchingEnabled(false);
@@ -63,8 +63,8 @@ class ImageController extends ChangeNotifier {
 
   String? get currentPath =>
       hasImages && _currentIndex >= 0 && _currentIndex < _playlist.length
-          ? _playlist[_currentIndex]
-          : null;
+      ? _playlist[_currentIndex]
+      : null;
 
   String get currentFileName {
     final path = currentPath;
@@ -87,6 +87,7 @@ class ImageController extends ChangeNotifier {
       _sortDirection == PlaylistSortDirection.ascending ? 0 : 1;
 
   Future<void> loadPath(String path) async {
+    _isLoadingPath = true;
     try {
       final fileType = FileSystemEntity.typeSync(path);
       if (fileType == FileSystemEntityType.file) {
@@ -96,31 +97,59 @@ class ImageController extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Error inspecting path: $e');
+    } finally {
+      _isLoadingPath = false;
     }
   }
 
   Future<void> _loadDirectory(String dirPath) async {
+    _operationId++;
+    final opId = _operationId;
     _currentDirectory = dirPath;
     watcherManager.startWatching(dirPath);
 
     final files = await _scanDirectory(dirPath);
-    _playlist = files;
-    _currentIndex = 0;
-    notifyListeners();
+    if (opId == _operationId) {
+      _playlist = files;
+      _currentIndex = 0;
+      notifyListeners();
+    }
   }
 
   Future<void> _loadSingleFileWithSiblings(String filePath) async {
     try {
+      _operationId++;
+      final opId = _operationId;
       final file = File(filePath);
       final parentDir = file.parent;
       _currentDirectory = parentDir.path;
       watcherManager.startWatching(parentDir.path);
 
       final files = await _scanDirectory(parentDir.path);
+
+      if (opId != _operationId) return;
+
       if (files.isNotEmpty) {
         _playlist = files;
-        final targetIndex = _playlist.indexOf(filePath);
-        _currentIndex = targetIndex != -1 ? targetIndex : 0;
+        final targetFile = File(filePath).absolute.path;
+        int targetIndex = _playlist.indexOf(filePath);
+        if (targetIndex == -1) {
+          targetIndex = _playlist.indexWhere((p) {
+            try {
+              return File(p).absolute.path == targetFile;
+            } catch (_) {
+              return false;
+            }
+          });
+        }
+
+        if (targetIndex != -1) {
+          _currentIndex = targetIndex;
+        } else {
+          // File wasn't in scanned list (e.g. extension filter or symlink) - ensure it is in the playlist!
+          _playlist.insert(0, filePath);
+          _currentIndex = 0;
+        }
       } else {
         _playlist = [filePath];
         _currentIndex = 0;
@@ -209,10 +238,9 @@ class ImageController extends ChangeNotifier {
   }
 
   void toggleSortDirection() {
-    _sortDirection =
-        _sortDirection == PlaylistSortDirection.ascending
-            ? PlaylistSortDirection.descending
-            : PlaylistSortDirection.ascending;
+    _sortDirection = _sortDirection == PlaylistSortDirection.ascending
+        ? PlaylistSortDirection.descending
+        : PlaylistSortDirection.ascending;
     refresh();
   }
 
@@ -235,25 +263,50 @@ class ImageController extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
+    if (_isLoadingPath) return;
     final dir = _currentDirectory;
     if (dir == null) return;
+
+    _operationId++;
+    final opId = _operationId;
 
     final activeFile = currentPath;
     final files = await _scanDirectory(dir);
 
-    _playlist = files;
+    if (opId != _operationId || _isLoadingPath) return;
+
+    int newIdx = 0;
     if (activeFile != null) {
-      final newIdx = _playlist.indexOf(activeFile);
-      if (newIdx != -1) {
-        _currentIndex = newIdx;
-      } else {
-        _currentIndex =
-            _playlist.isNotEmpty ? _currentIndex.clamp(0, _playlist.length - 1) : 0;
+      final canonicalActive = File(activeFile).absolute.path;
+      newIdx = files.indexOf(activeFile);
+      if (newIdx == -1) {
+        newIdx = files.indexWhere((p) {
+          try {
+            return File(p).absolute.path == canonicalActive;
+          } catch (_) {
+            return false;
+          }
+        });
       }
-    } else {
-      _currentIndex = 0;
+      if (newIdx == -1) {
+        if (File(activeFile).existsSync()) {
+          files.insert(0, activeFile);
+          newIdx = 0;
+        } else {
+          newIdx = files.isNotEmpty
+              ? _currentIndex.clamp(0, files.length - 1)
+              : 0;
+        }
+      }
     }
-    notifyListeners();
+
+    final hasChanged = !listEquals(_playlist, files) || _currentIndex != newIdx;
+    _playlist = files;
+    _currentIndex = newIdx;
+
+    if (hasChanged) {
+      notifyListeners();
+    }
   }
 
   void next() {

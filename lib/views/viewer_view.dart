@@ -90,7 +90,8 @@ class _ViewerViewState extends State<ViewerView> {
 
   void _bumpHud() {
     if (!_isHudVisible && mounted) {
-      if (WidgetsBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+      if (WidgetsBinding.instance.schedulerPhase ==
+          SchedulerPhase.persistentCallbacks) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && !_isHudVisible) {
             setState(() => _isHudVisible = true);
@@ -119,7 +120,8 @@ class _ViewerViewState extends State<ViewerView> {
       _pixelBuffer = null;
     }
     _bumpHud();
-    if (WidgetsBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+    if (WidgetsBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) setState(() {});
       });
@@ -151,20 +153,22 @@ class _ViewerViewState extends State<ViewerView> {
       _pixelBuffer = null;
       return;
     }
-    PixelBuffer.loadFromFile(path).then((buffer) {
-      if (!mounted || widget.controller.currentPath != path) {
-        return;
-      }
-      setState(() {
-        _pixelBuffer = buffer;
-      });
-    }).catchError((_) {
-      if (mounted && widget.controller.currentPath == path) {
-        setState(() {
-          _pixelBuffer = null;
+    PixelBuffer.loadFromFile(path)
+        .then((buffer) {
+          if (!mounted || widget.controller.currentPath != path) {
+            return;
+          }
+          setState(() {
+            _pixelBuffer = buffer;
+          });
+        })
+        .catchError((_) {
+          if (mounted && widget.controller.currentPath == path) {
+            setState(() {
+              _pixelBuffer = null;
+            });
+          }
         });
-      }
-    });
   }
 
   void _onImageChange() {
@@ -593,41 +597,76 @@ class _ViewerViewState extends State<ViewerView> {
         }
 
         if (_loadError) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.broken_image_outlined,
-                  size: 64,
-                  color: AppTheme.xCopyRed,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'CORRUPT OR UNSUPPORTED IMAGE',
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.xCopyRed,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Text(
-                    path,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 11,
-                      color: AppTheme.xCopyAmber,
+          return SizedBox.expand(
+            child: MouseRegion(
+              cursor: _isEyedropperActive
+                  ? SystemMouseCursors.precise
+                  : MouseCursor.defer,
+              child: Listener(
+                behavior: HitTestBehavior.opaque,
+                onPointerSignal: (event) {
+                  if (event is PointerScrollEvent) {
+                    final isCtrl = HardwareKeyboard.instance.isControlPressed;
+                    if (isCtrl) {
+                      final factor = event.scrollDelta.dy < 0 ? 1.15 : 0.87;
+                      _zoomAt(event.localPosition, factor);
+                    } else {
+                      if (event.scrollDelta.dy > 0) {
+                        widget.controller.next();
+                      } else if (event.scrollDelta.dy < 0) {
+                        widget.controller.previous();
+                      }
+                    }
+                  }
+                },
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onDoubleTap: _isEyedropperActive
+                      ? null
+                      : () {
+                          final isCloseToActual =
+                              (_currentScale - 1.0).abs() < 0.05;
+                          _resetTransform(actualSize: !isCloseToActual);
+                        },
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.broken_image_outlined,
+                          size: 64,
+                          color: AppTheme.xCopyRed,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'CORRUPT OR UNSUPPORTED IMAGE',
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.xCopyRed,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Text(
+                            path,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 11,
+                              color: AppTheme.xCopyAmber,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ],
+              ),
             ),
           );
         }
@@ -758,7 +797,8 @@ class _ViewerViewState extends State<ViewerView> {
                 viewportPosition: event.localPosition,
                 imageSize: _naturalSize!,
               );
-              if (p != _hoveredPixel || event.localPosition != _hoveredScreenPos) {
+              if (p != _hoveredPixel ||
+                  event.localPosition != _hoveredScreenPos) {
                 setState(() {
                   _hoveredPixel = p;
                   _hoveredScreenPos = event.localPosition;
@@ -929,240 +969,243 @@ class _ViewerViewState extends State<ViewerView> {
             focusNode: _focusNode,
             autofocus: true,
             child: DropTarget(
-          onDragEntered: (_) => setState(() => _isDragging = true),
-          onDragExited: (_) => setState(() => _isDragging = false),
-          onDragDone: (detail) {
-            setState(() => _isDragging = false);
-            if (detail.files.isNotEmpty) {
-              widget.controller.loadPath(detail.files.first.path);
-            }
-          },
-          child: AmigaCopperBackground(
-            isProcessing: isProcessing,
-            mode: _crunchController.activeMode,
-            child: Scaffold(
-              backgroundColor: Colors.transparent,
-              body: Column(
-                children: [
-                  // Canvas Viewport Area
-                  Expanded(
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        // Main edge-to-edge canvas
-                        _buildImageCanvas(),
+              onDragEntered: (_) => setState(() => _isDragging = true),
+              onDragExited: (_) => setState(() => _isDragging = false),
+              onDragDone: (detail) {
+                setState(() => _isDragging = false);
+                if (detail.files.isNotEmpty) {
+                  widget.controller.loadPath(detail.files.first.path);
+                }
+              },
+              child: AmigaCopperBackground(
+                isProcessing: isProcessing,
+                mode: _crunchController.activeMode,
+                child: Scaffold(
+                  backgroundColor: Colors.transparent,
+                  body: Column(
+                    children: [
+                      // Canvas Viewport Area
+                      Expanded(
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            // Main edge-to-edge canvas
+                            _buildImageCanvas(),
 
-                        // Drag and drop overlay
-                        if (_isDragging)
-                          Container(
-                            color: Colors.black.withValues(alpha: 0.85),
-                            child: Center(
-                              child: RetroPanel(
-                                style: RetroPanelStyle.rivetedPlate,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 28,
-                                  vertical: 20,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.file_download_rounded,
-                                      color: AppTheme.xCopyAmber,
-                                      size: 32,
+                            // Drag and drop overlay
+                            if (_isDragging)
+                              Container(
+                                color: Colors.black.withValues(alpha: 0.85),
+                                child: Center(
+                                  child: RetroPanel(
+                                    style: RetroPanelStyle.rivetedPlate,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 28,
+                                      vertical: 20,
                                     ),
-                                    const SizedBox(width: 14),
-                                    Text(
-                                      'DROP IMAGE TO CRUNCH',
-                                      style: TextStyle(
-                                        fontFamily: 'monospace',
-                                        color: context.wireframeCyan,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 15,
-                                        letterSpacing: 1.5,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-
-                        // Retro Instrument HUD Pill (with auto-fade on inactivity)
-                        if (c.hasImages)
-                          Positioned(
-                            top: 14,
-                            left: 14,
-                            child: AnimatedOpacity(
-                              opacity: _isHudVisible ? 1.0 : 0.0,
-                              duration: const Duration(milliseconds: 250),
-                              child: IgnorePointer(
-                                ignoring: !_isHudVisible,
-                                child: RetroPanel(
-                                  style: RetroPanelStyle.cyanWireframe,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      RetroLed(
-                                        isActive: true,
-                                        size: 7,
-                                        activeColor: _modeColor(
-                                          _crunchController.activeMode,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.file_download_rounded,
+                                          color: AppTheme.xCopyAmber,
+                                          size: 32,
                                         ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        _crunchController.activeMode.name
-                                            .toUpperCase(),
-                                        style: TextStyle(
-                                          fontFamily: 'monospace',
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 1.2,
-                                          color: _modeColor(
-                                            _crunchController.activeMode,
-                                          ),
-                                        ),
-                                      ),
-
-                                      if (_isEyedropperActive) ...[
-                                        const SizedBox(width: 10),
-                                        Container(
-                                          width: 1,
-                                          height: 12,
-                                          color: context.wireframeCyanDim,
-                                        ),
-                                        const SizedBox(width: 10),
-                                        const RetroLed(
-                                          isActive: true,
-                                          size: 7,
-                                          activeColor: AppTheme.xCopyCyan,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        const Text(
-                                          'PICKER',
+                                        const SizedBox(width: 14),
+                                        Text(
+                                          'DROP IMAGE TO CRUNCH',
                                           style: TextStyle(
                                             fontFamily: 'monospace',
-                                            fontSize: 10,
+                                            color: context.wireframeCyan,
                                             fontWeight: FontWeight.bold,
-                                            letterSpacing: 1.2,
-                                            color: AppTheme.xCopyCyan,
+                                            fontSize: 15,
+                                            letterSpacing: 1.5,
                                           ),
                                         ),
                                       ],
-
-                                      if (c.playlist.isNotEmpty) ...[
-                                        const SizedBox(width: 10),
-                                        Container(
-                                          width: 1,
-                                          height: 12,
-                                          color: context.wireframeCyanDim,
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Text(
-                                          'TRK: ${c.currentIndex + 1}/${c.playlist.length}',
-                                          style: const TextStyle(
-                                            fontFamily: 'monospace',
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                            color: AppTheme.xCopyAmber,
-                                            letterSpacing: 1.0,
-                                          ),
-                                        ),
-                                      ],
-                                      const SizedBox(width: 10),
-                                      Container(
-                                        width: 1,
-                                        height: 12,
-                                        color: context.wireframeCyanDim,
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Text(
-                                        'Z: ${(_currentScale * 100).toInt()}%',
-                                        style: const TextStyle(
-                                          fontFamily: 'monospace',
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.xCopyAmber,
-                                          letterSpacing: 1.0,
-                                        ),
-                                      ),
-                                    ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ),
 
-                        // Pixel Eyedropper Loupe
-                        if (_isEyedropperActive &&
-                            _hoveredPixel != null &&
-                            _pixelBuffer != null &&
-                            _lastViewportSize != null)
-                          RetroPixelLoupe(
-                            pixelCoordinates: _hoveredPixel!,
-                            color: _pixelBuffer!.getPixel(
-                              _hoveredPixel!.x,
-                              _hoveredPixel!.y,
-                            ),
-                            hexCode: _pixelBuffer!.getHex(
-                              _hoveredPixel!.x,
-                              _hoveredPixel!.y,
-                            ),
-                            rgbText: _pixelBuffer!.getRgb(
-                              _hoveredPixel!.x,
-                              _hoveredPixel!.y,
-                            ),
-                            patch: _pixelBuffer!.getPatch(
-                              _hoveredPixel!.x,
-                              _hoveredPixel!.y,
-                              radius: 4,
-                            ),
-                            screenPosition: _hoveredScreenPos ?? Offset.zero,
-                            viewportSize: _lastViewportSize!,
-                          ),
-                      ],
-                    ),
-                  ),
+                            // Retro Instrument HUD Pill (with auto-fade on inactivity)
+                            if (c.hasImages)
+                              Positioned(
+                                top: 14,
+                                left: 14,
+                                child: AnimatedOpacity(
+                                  opacity: _isHudVisible ? 1.0 : 0.0,
+                                  duration: const Duration(milliseconds: 250),
+                                  child: IgnorePointer(
+                                    ignoring: !_isHudVisible,
+                                    child: RetroPanel(
+                                      style: RetroPanelStyle.cyanWireframe,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 6,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          RetroLed(
+                                            isActive: true,
+                                            size: 7,
+                                            activeColor: _modeColor(
+                                              _crunchController.activeMode,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            _crunchController.activeMode.name
+                                                .toUpperCase(),
+                                            style: TextStyle(
+                                              fontFamily: 'monospace',
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 1.2,
+                                              color: _modeColor(
+                                                _crunchController.activeMode,
+                                              ),
+                                            ),
+                                          ),
 
-                  // Permanent Bottom Retro Status Bar (solid console base)
-                  RetroStatusBar(
-                    statusText: _isEyedropperActive
-                        ? 'MODE: PIXEL EYEDROPPER & LOUPE // [CLICK] COPY HEX // [P/ESC] EXIT'
-                        : _getStatusMessage(c),
-                    dimensions: _naturalSize,
-                    zoomScale: _currentScale,
-                    currentIndex: c.currentIndex,
-                    totalCount: c.playlist.length,
-                    sortLabel: c.hasImages ? c.sortCriterionLabel : null,
-                    sortDirection: c.hasImages ? c.sortDirectionArrow : null,
-                    onSortTap: () {
-                      _bumpHud();
-                      c.cycleSortCriterion();
-                    },
-                    trailing: RetroButton(
-                      label: 'MENU',
-                      shortcut: 'M',
-                      fontSize: 9,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
+                                          if (_isEyedropperActive) ...[
+                                            const SizedBox(width: 10),
+                                            Container(
+                                              width: 1,
+                                              height: 12,
+                                              color: context.wireframeCyanDim,
+                                            ),
+                                            const SizedBox(width: 10),
+                                            const RetroLed(
+                                              isActive: true,
+                                              size: 7,
+                                              activeColor: AppTheme.xCopyCyan,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            const Text(
+                                              'PICKER',
+                                              style: TextStyle(
+                                                fontFamily: 'monospace',
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                letterSpacing: 1.2,
+                                                color: AppTheme.xCopyCyan,
+                                              ),
+                                            ),
+                                          ],
+
+                                          if (c.playlist.isNotEmpty) ...[
+                                            const SizedBox(width: 10),
+                                            Container(
+                                              width: 1,
+                                              height: 12,
+                                              color: context.wireframeCyanDim,
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Text(
+                                              'TRK: ${c.currentIndex + 1}/${c.playlist.length}',
+                                              style: const TextStyle(
+                                                fontFamily: 'monospace',
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppTheme.xCopyAmber,
+                                                letterSpacing: 1.0,
+                                              ),
+                                            ),
+                                          ],
+                                          const SizedBox(width: 10),
+                                          Container(
+                                            width: 1,
+                                            height: 12,
+                                            color: context.wireframeCyanDim,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Text(
+                                            'Z: ${(_currentScale * 100).toInt()}%',
+                                            style: const TextStyle(
+                                              fontFamily: 'monospace',
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppTheme.xCopyAmber,
+                                              letterSpacing: 1.0,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                            // Pixel Eyedropper Loupe
+                            if (_isEyedropperActive &&
+                                _hoveredPixel != null &&
+                                _pixelBuffer != null &&
+                                _lastViewportSize != null)
+                              RetroPixelLoupe(
+                                pixelCoordinates: _hoveredPixel!,
+                                color: _pixelBuffer!.getPixel(
+                                  _hoveredPixel!.x,
+                                  _hoveredPixel!.y,
+                                ),
+                                hexCode: _pixelBuffer!.getHex(
+                                  _hoveredPixel!.x,
+                                  _hoveredPixel!.y,
+                                ),
+                                rgbText: _pixelBuffer!.getRgb(
+                                  _hoveredPixel!.x,
+                                  _hoveredPixel!.y,
+                                ),
+                                patch: _pixelBuffer!.getPatch(
+                                  _hoveredPixel!.x,
+                                  _hoveredPixel!.y,
+                                  radius: 4,
+                                ),
+                                screenPosition:
+                                    _hoveredScreenPos ?? Offset.zero,
+                                viewportSize: _lastViewportSize!,
+                              ),
+                          ],
+                        ),
                       ),
-                      onPressed: _showMenu,
-                    ),
+
+                      // Permanent Bottom Retro Status Bar (solid console base)
+                      RetroStatusBar(
+                        statusText: _isEyedropperActive
+                            ? 'MODE: PIXEL EYEDROPPER & LOUPE // [CLICK] COPY HEX // [P/ESC] EXIT'
+                            : _getStatusMessage(c),
+                        dimensions: _naturalSize,
+                        zoomScale: _currentScale,
+                        currentIndex: c.currentIndex,
+                        totalCount: c.playlist.length,
+                        sortLabel: c.hasImages ? c.sortCriterionLabel : null,
+                        sortDirection: c.hasImages
+                            ? c.sortDirectionArrow
+                            : null,
+                        onSortTap: () {
+                          _bumpHud();
+                          c.cycleSortCriterion();
+                        },
+                        trailing: RetroButton(
+                          label: 'MENU',
+                          shortcut: 'M',
+                          fontSize: 9,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          onPressed: _showMenu,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
         ),
       ),
-    ),
-    ),
     );
   }
 
@@ -1200,7 +1243,8 @@ class ViewerShortcutManager extends ShortcutManager {
     final primaryFocus = FocusManager.instance.primaryFocus;
     final widget = primaryFocus?.context?.widget;
     if (widget is EditableText ||
-        (primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() != null)) {
+        (primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() !=
+            null)) {
       return KeyEventResult.ignored;
     }
     return super.handleKeypress(context, event);
@@ -1211,4 +1255,3 @@ class _ViewerShortcutIntent extends Intent {
   const _ViewerShortcutIntent(this.callback);
   final VoidCallback callback;
 }
-

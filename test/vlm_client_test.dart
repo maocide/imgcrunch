@@ -214,6 +214,7 @@ void main() {
         const config = VlmConfig();
 
         final received = <String>[];
+        final completer = Completer<void>();
         final subscription = client
             .streamCaption(
               imagePath: testFile.path,
@@ -223,9 +224,10 @@ void main() {
             .listen((token) {
               received.add(token);
               client.abort();
+              if (!completer.isCompleted) completer.complete();
             });
 
-        await pumpEventQueue();
+        await completer.future.timeout(const Duration(seconds: 3));
         await subscription.cancel();
 
         expect(received, equals(['Token 1']));

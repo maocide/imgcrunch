@@ -214,6 +214,29 @@ void main() {
 
       crunchController.dispose();
     });
+
+    test('CrunchStateController.onImageChanged only notifies listeners once and does not double-fire from VLM', () {
+      final vlmController = VlmController(configStorage: InMemoryConfigStorage());
+      final crunchController = CrunchStateController(vlmController: vlmController);
+
+      int notifyCount = 0;
+      crunchController.addListener(() {
+        notifyCount++;
+      });
+
+      crunchController.onImageChanged('/path/alpha.png');
+      expect(notifyCount, equals(1));
+
+      // Same path should not notify
+      crunchController.onImageChanged('/path/alpha.png');
+      expect(notifyCount, equals(1));
+
+      // Different path notifies once
+      crunchController.onImageChanged('/path/bravo.png');
+      expect(notifyCount, equals(2));
+
+      crunchController.dispose();
+    });
   });
 }
 

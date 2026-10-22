@@ -40,8 +40,8 @@ class CrunchStateController extends ChangeNotifier {
     this.asciiTargetWidth = 120,
     this.asciiCharAspect = 0.7,
     this.elaScale = 25,
-  })  : _rustService = rustService ?? RustImageService.instance,
-        _vlmController = vlmController ?? VlmController() {
+  }) : _rustService = rustService ?? RustImageService.instance,
+       _vlmController = vlmController ?? VlmController() {
     _lastVlmState = _vlmController.state;
     _vlmController.addListener(_onVlmStateChanged);
   }
@@ -57,15 +57,18 @@ class CrunchStateController extends ChangeNotifier {
   String? _currentPath;
 
   PipelineState<Uint8List> _elaState = const PipelineIdle<Uint8List>();
-  PipelineState<AsciiCrunchResult> _asciiState = const PipelineIdle<AsciiCrunchResult>();
+  PipelineState<AsciiCrunchResult> _asciiState =
+      const PipelineIdle<AsciiCrunchResult>();
   PipelineState<String> _stringsState = const PipelineIdle<String>();
   PipelineState<String> _lastVlmState = const PipelineIdle<String>();
+  bool _isResettingPipelines = false;
 
   ViewMode get activeMode => _activeMode;
   String? get currentPath => _currentPath;
   VlmController get vlmController => _vlmController;
 
   void _onVlmStateChanged() {
+    if (_isResettingPipelines) return;
     // Only notify parent when the pipeline lifecycle state changes,
     // avoiding high-frequency rebuilds during streaming token accumulation!
     if (_lastVlmState != _vlmController.state) {
@@ -145,11 +148,21 @@ class CrunchStateController extends ChangeNotifier {
 
   /// Called when the image changes (e.g. Next / Prev / File open).
   void onImageChanged(String? newPath) {
+    if (_currentPath == newPath) return;
+
     _currentPath = newPath;
     _elaState = const PipelineIdle<Uint8List>();
     _asciiState = const PipelineIdle<AsciiCrunchResult>();
     _stringsState = const PipelineIdle<String>();
-    _vlmController.onImageChanged(newPath);
+
+    _isResettingPipelines = true;
+    try {
+      _vlmController.onImageChanged(newPath);
+      _lastVlmState = _vlmController.state;
+    } finally {
+      _isResettingPipelines = false;
+    }
+
     notifyListeners();
     _triggerActivePipelineIfNeeded();
   }

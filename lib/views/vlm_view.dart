@@ -47,9 +47,7 @@ class _VlmViewState extends State<VlmView> {
     _promptTextCtrl = TextEditingController(
       text: _vlmCtrl.config.effectivePrompt,
     );
-    _terminalTextCtrl = TextEditingController(
-      text: _vlmCtrl.accumulatedText,
-    );
+    _terminalTextCtrl = TextEditingController(text: _vlmCtrl.accumulatedText);
     _vlmCtrl.addListener(_onVlmStateChanged);
     _tokenStreamSub = _vlmCtrl.tokenStream.listen(_onTokenReceived);
   }
@@ -92,7 +90,8 @@ class _VlmViewState extends State<VlmView> {
       if (_terminalTextCtrl.text.isNotEmpty) {
         _terminalTextCtrl.clear();
       }
-    } else if (_vlmCtrl.state is PipelineReady && _terminalTextCtrl.text.isEmpty) {
+    } else if (_vlmCtrl.state is PipelineReady &&
+        _terminalTextCtrl.text.isEmpty) {
       _terminalTextCtrl.text = _vlmCtrl.accumulatedText;
     }
     setState(() {});
@@ -128,9 +127,9 @@ class _VlmViewState extends State<VlmView> {
   Future<void> _copyCaption() async {
     final text = _terminalTextCtrl.text.trim();
     if (text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No caption text to copy!')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No caption text to copy!')));
       return;
     }
 
@@ -163,10 +162,7 @@ class _VlmViewState extends State<VlmView> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(flex: 5, child: _buildImagePane()),
-                  Container(
-                    width: 2,
-                    color: AppTheme.xCopySteelDark,
-                  ),
+                  Container(width: 2, color: AppTheme.xCopySteelDark),
                   Expanded(flex: 6, child: _buildConsolePane()),
                 ],
               );
@@ -175,10 +171,7 @@ class _VlmViewState extends State<VlmView> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(flex: 4, child: _buildImagePane()),
-                  Container(
-                    height: 2,
-                    color: AppTheme.xCopySteelDark,
-                  ),
+                  Container(height: 2, color: AppTheme.xCopySteelDark),
                   Expanded(flex: 6, child: _buildConsolePane()),
                 ],
               );
@@ -248,7 +241,7 @@ class _VlmViewState extends State<VlmView> {
               const SizedBox(width: 8),
               const Flexible(
                 child: Text(
-                  'VLM // NEURAL INSPECTOR',
+                  'VLM // VISION ANALYSIS',
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontFamily: 'monospace',
@@ -264,7 +257,10 @@ class _VlmViewState extends State<VlmView> {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: AppTheme.xCopySteel.withValues(alpha: 0.4),
-                  border: Border.all(color: AppTheme.xCopySteelLight, width: 1.0),
+                  border: Border.all(
+                    color: AppTheme.xCopySteelLight,
+                    width: 1.0,
+                  ),
                 ),
                 child: Text(
                   vlm.config.model.toUpperCase(),
@@ -281,7 +277,8 @@ class _VlmViewState extends State<VlmView> {
               RetroButton(
                 label: 'COPY',
                 fontSize: 10,
-                onPressed: (_terminalTextCtrl.text.isNotEmpty ||
+                onPressed:
+                    (_terminalTextCtrl.text.isNotEmpty ||
                         vlm.accumulatedText.isNotEmpty)
                     ? _copyCaption
                     : null,
@@ -372,12 +369,18 @@ class _VlmViewState extends State<VlmView> {
       );
     }
 
-    if (_terminalTextCtrl.text.isEmpty && vlm.accumulatedText.isEmpty && state is PipelineIdle) {
+    if (_terminalTextCtrl.text.isEmpty &&
+        vlm.accumulatedText.isEmpty &&
+        state is PipelineIdle) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const RetroLed(isActive: true, activeColor: AppTheme.xCopyCyan, size: 10),
+            const RetroLed(
+              isActive: true,
+              activeColor: AppTheme.xCopyCyan,
+              size: 10,
+            ),
             const SizedBox(height: 12),
             const Text(
               'NEURAL VISION READY',
@@ -556,7 +559,10 @@ class _VlmViewState extends State<VlmView> {
             cursorColor: AppTheme.xCopyGreen,
             decoration: InputDecoration(
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 8,
+              ),
               border: InputBorder.none,
               hintText: 'Enter system prompt or neural vision instructions...',
               hintStyle: TextStyle(
@@ -581,7 +587,7 @@ class _VlmViewState extends State<VlmView> {
               style: TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 9.5,
-                color: AppTheme.xCopySteelLight.withValues(alpha: 0.7),
+                color: AppTheme.xCopySteelLight,
               ),
             ),
             if (vlm.isStreaming)

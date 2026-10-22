@@ -23,7 +23,7 @@ void main() {
   });
 
   test('ImageController initializes with default sorting state', () {
-    final controller = ImageController(enableWatcher: false, autoRegisterLifecycle: false);
+    final controller = ImageController(enableWatcher: false);
     expect(controller.sortCriterion, PlaylistSortCriterion.name);
     expect(controller.sortDirection, PlaylistSortDirection.ascending);
     expect(controller.sortCriterionLabel, 'NAME');
@@ -34,7 +34,7 @@ void main() {
   });
 
   test('ImageController cycles sort criterion and toggles direction', () {
-    final controller = ImageController(enableWatcher: false, autoRegisterLifecycle: false);
+    final controller = ImageController(enableWatcher: false);
 
     // Initial: NAME
     expect(controller.sortCriterion, PlaylistSortCriterion.name);
@@ -79,7 +79,7 @@ void main() {
     await fileB.writeAsBytes(List.filled(100, 0)); // 100 bytes
     await fileC.writeAsBytes(List.filled(200, 0)); // 200 bytes
 
-    final controller = ImageController(enableWatcher: false, autoRegisterLifecycle: false);
+    final controller = ImageController(enableWatcher: false);
     await controller.loadPath(tempDir.path);
 
     expect(controller.hasImages, isTrue);
@@ -106,6 +106,46 @@ void main() {
     expect(controller.playlist[2], fileA.path);
     expect(controller.currentPath, fileB.path);
     expect(controller.currentIndex, 0);
+
+    controller.dispose();
+  });
+
+  test('refresh does not notify listeners when playlist and index are unchanged', () async {
+    final fileA = File('${tempDir.path}/alpha.png');
+    await fileA.writeAsBytes(List.filled(100, 0));
+
+    final controller = ImageController(enableWatcher: false);
+    await controller.loadPath(fileA.path);
+
+    int notifyCount = 0;
+    controller.addListener(() {
+      notifyCount++;
+    });
+
+    await controller.refresh();
+    expect(notifyCount, 0, reason: 'Unchanged refresh must not notify listeners');
+
+    controller.dispose();
+  });
+
+  test('loadPath is not cancelled by concurrent refresh call', () async {
+    final fileA = File('${tempDir.path}/alpha.png');
+    final fileB = File('${tempDir.path}/bravo.png');
+    await fileA.writeAsBytes(List.filled(100, 0));
+    await fileB.writeAsBytes(List.filled(200, 0));
+
+    final controller = ImageController(enableWatcher: false);
+    await controller.loadPath(fileA.path);
+    expect(controller.currentPath, fileA.path);
+
+    // Concurrently trigger loadPath for fileB and refresh
+    final loadFuture = controller.loadPath(fileB.path);
+    final refreshFuture = controller.refresh();
+
+    await Future.wait([loadFuture, refreshFuture]);
+
+    // fileB must win and be the currentPath
+    expect(controller.currentPath, fileB.path);
 
     controller.dispose();
   });

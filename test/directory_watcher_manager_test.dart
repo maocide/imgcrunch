@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:imgcrunch/controllers/directory_watcher_manager.dart';
 
@@ -22,12 +21,11 @@ void main() {
       onRefreshRequested: () async {
         refreshCalls++;
       },
-      autoRegisterObserver: false,
     );
 
     expect(manager.currentDirPath, isNull);
     expect(manager.isWatching, isFalse);
-    expect(manager.isPaused, isFalse);
+    expect(manager.isWatchingEnabled, isTrue);
 
     manager.startWatching(tempDir.path);
     expect(manager.currentDirPath, tempDir.path);
@@ -41,28 +39,43 @@ void main() {
     expect(refreshCalls, 0);
   });
 
-  test('DirectoryWatcherManager pauses and resumes on lifecycle transitions', () {
-    int refreshCalls = 0;
+  test('DirectoryWatcherManager toggles watching via setWatchingEnabled', () {
     final manager = DirectoryWatcherManager(
-      onRefreshRequested: () async {
-        refreshCalls++;
-      },
-      autoRegisterObserver: false,
+      onRefreshRequested: () async {},
     );
 
     manager.startWatching(tempDir.path);
     expect(manager.isWatching, isTrue);
 
-    // App goes inactive / hidden / paused
-    manager.didChangeAppLifecycleState(AppLifecycleState.inactive);
-    expect(manager.isPaused, isTrue);
+    manager.setWatchingEnabled(false);
+    expect(manager.isWatchingEnabled, isFalse);
     expect(manager.isWatching, isFalse);
 
-    // App resumes -> triggers instant catch-up refresh and re-starts watching!
-    manager.didChangeAppLifecycleState(AppLifecycleState.resumed);
-    expect(manager.isPaused, isFalse);
+    manager.setWatchingEnabled(true);
+    expect(manager.isWatchingEnabled, isTrue);
     expect(manager.isWatching, isTrue);
-    expect(refreshCalls, 1);
+
+    manager.dispose();
+  });
+
+  test('DirectoryWatcherManager debounces rapid filesystem changes', () async {
+    int refreshCalls = 0;
+    final manager = DirectoryWatcherManager(
+      onRefreshRequested: () async {
+        refreshCalls++;
+      },
+      debounceDuration: const Duration(milliseconds: 50),
+    );
+
+    manager.startWatching(tempDir.path);
+
+    // Create a file to trigger filesystem event
+    final testFile = File('${tempDir.path}/test.png');
+    await testFile.writeAsBytes([1, 2, 3]);
+
+    // Wait for debounce duration
+    await Future.delayed(const Duration(milliseconds: 150));
+    expect(refreshCalls, greaterThanOrEqualTo(1));
 
     manager.dispose();
   });

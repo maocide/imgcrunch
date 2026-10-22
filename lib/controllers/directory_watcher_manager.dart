@@ -1,39 +1,28 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
 
 typedef DirectoryRefreshCallback = Future<void> Function();
 
-/// Manages filesystem watching for the active directory, bound to Flutter's
-/// application lifecycle to conserve OS inotify descriptors when inactive.
-class DirectoryWatcherManager with WidgetsBindingObserver {
+/// Manages continuous filesystem watching for the active playlist directory,
+/// debouncing native inotify/filesystem events.
+class DirectoryWatcherManager {
   final DirectoryRefreshCallback onRefreshRequested;
   final Duration debounceDuration;
 
   String? _currentDirPath;
   StreamSubscription<FileSystemEvent>? _subscription;
   Timer? _debounceTimer;
-  bool _isPaused = false;
   bool _isWatchingEnabled = true;
 
   DirectoryWatcherManager({
     required this.onRefreshRequested,
     this.debounceDuration = const Duration(milliseconds: 300),
-    bool autoRegisterObserver = true,
-  }) {
-    if (autoRegisterObserver) {
-      try {
-        WidgetsBinding.instance.addObserver(this);
-      } catch (e) {
-        // Fallback for non-widget test harnesses where WidgetsBinding is not bound
-        debugPrint('DirectoryWatcherManager: WidgetsBinding not initialized: $e');
-      }
-    }
-  }
+  });
 
   String? get currentDirPath => _currentDirPath;
-  bool get isWatching => _subscription != null && !_isPaused;
-  bool get isPaused => _isPaused;
+  bool get isWatching => _subscription != null;
+  bool get isWatchingEnabled => _isWatchingEnabled;
 
   void startWatching(String dirPath) {
     if (_currentDirPath == dirPath && _subscription != null) {
@@ -67,7 +56,7 @@ class DirectoryWatcherManager with WidgetsBindingObserver {
     _subscription?.cancel();
     _subscription = null;
 
-    if (!_isWatchingEnabled || _isPaused || _currentDirPath == null) {
+    if (!_isWatchingEnabled || _currentDirPath == null) {
       return;
     }
 
@@ -95,37 +84,7 @@ class DirectoryWatcherManager with WidgetsBindingObserver {
     });
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      resume();
-    } else if (state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.hidden ||
-        state == AppLifecycleState.paused) {
-      pause();
-    }
-  }
-
-  void pause() {
-    if (_isPaused) return;
-    _isPaused = true;
-    _debounceTimer?.cancel();
-    _subscription?.cancel();
-    _subscription = null;
-  }
-
-  void resume() {
-    if (!_isPaused) return;
-    _isPaused = false;
-    // Catch any changes made while the window was in the background
-    onRefreshRequested();
-    _setupWatcher();
-  }
-
   void dispose() {
-    try {
-      WidgetsBinding.instance.removeObserver(this);
-    } catch (_) {}
     stopWatching();
   }
 }

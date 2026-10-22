@@ -96,7 +96,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Check header and status
-      expect(find.text('VLM // NEURAL INSPECTOR'), findsOneWidget);
+      expect(find.text('VLM // VISION ANALYSIS'), findsOneWidget);
       expect(find.text('NEURAL VISION READY'), findsOneWidget);
 
       // Check preset pills

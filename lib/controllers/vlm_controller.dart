@@ -196,7 +196,11 @@ class VlmController extends ChangeNotifier {
       return;
     }
     _currentImagePath = newPath;
-    abort();
+    _vlmClient.abort();
+    if (_stopwatch?.isRunning == true) {
+      _stopwatch?.stop();
+    }
+    _isStreaming = false;
     _state = const PipelineIdle<String>();
     _accumulatedText = '';
     _tokenCount = 0;
