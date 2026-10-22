@@ -1,0 +1,18 @@
+[Desktop Entry]
+Version=1.0
+Name=IMGCRUNCH
+GenericName=Image Viewer & Forensics
+Comment=Retro Amiga X-Copy style image viewer, ELA forensics, ASCII matrix, and pixel eyedropper
+Exec=imgcrunch %F
+Icon=imgcrunch
+Terminal=false
+Type=Application
+Categories=Graphics;Viewer;Photography;RasterGraphics;
+MimeType=image/bmp;image/gif;image/jpeg;image/jpg;image/png;image/tiff;image/webp;image/x-tga;image/x-portable-pixmap;image/x-xbitmap;
+StartupWMClass=imgcrunch
+Keywords=image;viewer;photo;forensics;ela;ascii;eyedropper;amiga;retro;
+Actions=NewWindow;
+
+[Desktop Action NewWindow]
+Name=New Window
+Exec=imgcrunch
