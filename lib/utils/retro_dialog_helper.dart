@@ -87,7 +87,7 @@ class RetroDialogHelper {
                         ),
                         TableRow(
                           children: [
-                            _HelpKey('0 / R'),
+                            _HelpKey('R / 0 (ZERO)'),
                             _HelpDesc(
                               'Toggle Fit to window / 100% Actual Scale',
                             ),
@@ -121,14 +121,14 @@ class RetroDialogHelper {
                         ),
                         TableRow(
                           children: [
-                            _HelpKey('O'),
+                            _HelpKey('O / CTRL+O'),
                             _HelpDesc('Open Single Image File'),
                           ],
                         ),
                         TableRow(
                           children: [
-                            _HelpKey('CTRL + O'),
-                            _HelpDesc('Open Directory / Playlist'),
+                            _HelpKey('SHIFT + O'),
+                            _HelpDesc('Open Directory / Playlist Folder'),
                           ],
                         ),
                         TableRow(
@@ -159,7 +159,7 @@ class RetroDialogHelper {
                         ),
                         TableRow(
                           children: [
-                            _HelpKey('H'),
+                            _HelpKey('H / F1'),
                             _HelpDesc('Open Command Reference (Help)'),
                           ],
                         ),
@@ -274,6 +274,7 @@ class _HelpKey extends StatelessWidget {
           fontWeight: FontWeight.bold,
           color: AppTheme.xCopyAmber,
           letterSpacing: 0.8,
+          fontFeatures: [FontFeature.slashedZero()],
         ),
       ),
     );

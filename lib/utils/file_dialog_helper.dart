@@ -11,11 +11,7 @@ class FileDialogHelper {
     'webp',
     'bmp',
     'gif',
-    'tiff',
-    'tga',
     'ico',
-    'avif',
-    'qoi',
   ];
 
   /// Opens a native OS dialog to pick an image file.

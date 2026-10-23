@@ -276,6 +276,12 @@ class _ViewerViewState extends State<ViewerView> {
     });
   }
 
+  void _toggleScale() {
+    _bumpHud();
+    final isCloseToActual = (_currentScale - 1.0).abs() < 0.05;
+    _resetTransform(actualSize: !isCloseToActual);
+  }
+
   void _zoomAt(Offset focalPoint, double scaleFactor) {
     final nextMatrix = ImageMatrixHelper.zoomAt(
       currentMatrix: _transformController.value,
@@ -341,7 +347,7 @@ class _ViewerViewState extends State<ViewerView> {
         onPickImage: _pickImageFile,
         onPickDirectory: _pickDirectory,
         onOpenPath: _showOpenPathDialog,
-        onResetZoom: _resetTransform,
+        onResetZoom: _toggleScale,
         onCopy: _copyContent,
         onPaste: _pasteImageFromClipboard,
         onShowHelp: _showHelpDialog,
@@ -621,13 +627,7 @@ class _ViewerViewState extends State<ViewerView> {
                 },
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onDoubleTap: _isEyedropperActive
-                      ? null
-                      : () {
-                          final isCloseToActual =
-                              (_currentScale - 1.0).abs() < 0.05;
-                          _resetTransform(actualSize: !isCloseToActual);
-                        },
+                  onDoubleTap: _isEyedropperActive ? null : _toggleScale,
                   child: Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -840,13 +840,7 @@ class _ViewerViewState extends State<ViewerView> {
               }
             },
             child: GestureDetector(
-              onDoubleTap: _isEyedropperActive
-                  ? null
-                  : () {
-                      final isCloseToActual =
-                          (_currentScale - 1.0).abs() < 0.05;
-                      _resetTransform(actualSize: !isCloseToActual);
-                    },
+              onDoubleTap: _isEyedropperActive ? null : _toggleScale,
               child: interactive,
             ),
           ),
@@ -886,6 +880,7 @@ class _ViewerViewState extends State<ViewerView> {
     final shortcutBindings = <ShortcutActivator, VoidCallback>{
       const SingleActivator(LogicalKeyboardKey.escape): _handleEscape,
       const SingleActivator(LogicalKeyboardKey.keyH): _showHelpDialog,
+      const SingleActivator(LogicalKeyboardKey.f1): _showHelpDialog,
       const SingleActivator(LogicalKeyboardKey.arrowRight): () {
         _bumpHud();
         c.next();
@@ -902,8 +897,9 @@ class _ViewerViewState extends State<ViewerView> {
         _bumpHud();
         c.previous();
       },
-      const SingleActivator(LogicalKeyboardKey.digit0): _resetTransform,
-      const SingleActivator(LogicalKeyboardKey.keyR): _resetTransform,
+      const SingleActivator(LogicalKeyboardKey.digit0): _toggleScale,
+      const SingleActivator(LogicalKeyboardKey.numpad0): _toggleScale,
+      const SingleActivator(LogicalKeyboardKey.keyR): _toggleScale,
       const SingleActivator(LogicalKeyboardKey.digit1): () {
         _bumpHud();
         _crunchController.setMode(ViewMode.normal);
@@ -949,6 +945,8 @@ class _ViewerViewState extends State<ViewerView> {
       const SingleActivator(LogicalKeyboardKey.keyO): _pickImageFile,
       const SingleActivator(LogicalKeyboardKey.keyO, control: true):
           _pickImageFile,
+      const SingleActivator(LogicalKeyboardKey.keyO, shift: true):
+          _pickDirectory,
       const SingleActivator(LogicalKeyboardKey.keyO, alt: true):
           _showOpenPathDialog,
       const SingleActivator(LogicalKeyboardKey.keyS): () {

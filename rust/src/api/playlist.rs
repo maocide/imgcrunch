@@ -22,7 +22,7 @@ struct FileByDate {
     date: SystemTime,
 }
 
-const VALID_EXTENSIONS: &[&str; 6] = &["png", "gif", "bmp", "jpeg", "jpg", "webp"];
+const VALID_EXTENSIONS: &[&str; 7] = &["png", "gif", "bmp", "jpeg", "jpg", "webp", "ico"];
 
 fn is_valid_ext(ext: &str) -> bool {
     return VALID_EXTENSIONS

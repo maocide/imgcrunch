@@ -194,7 +194,7 @@ class RetroCommandDeck extends StatelessWidget {
               RetroButton(
                 icon: Icons.refresh_rounded,
                 label: 'RESET ZOOM',
-                shortcut: '0',
+                shortcut: 'R / 0',
                 textColor: AppTheme.xCopyCyan,
                 onPressed: () {
                   onResetZoom();

@@ -10,6 +10,7 @@ const List<String> supportedExtensions = [
   '.webp',
   '.bmp',
   '.gif',
+  '.ico',
 ];
 
 enum PlaylistSortCriterion { name, modified, size }
