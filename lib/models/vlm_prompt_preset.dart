@@ -21,6 +21,13 @@ enum VlmPromptPreset {
     prompt:
         'Generate Danbooru-style lowercase comma-separated tags describing character attributes, outfit, action, pose, background, and artistic style. Example: 1girl, solo, blue_hair, looking_at_viewer, outdoors.',
   ),
+  forensic(
+    id: 'forensic',
+    label: 'FORNSC',
+    title: 'Forensic & ELA Inspection',
+    prompt:
+        'Perform digital forensic inspection. Correlate Image 1 (original) against Image 2 (Error Level Analysis ELA map) and the extracted binary strings. Identify compression boundaries, splice artifacts, clone marks, and metadata indicators of manipulation.',
+  ),
   custom(
     id: 'custom',
     label: 'CUSTOM',
@@ -55,6 +62,7 @@ enum VlmPromptPreset {
     return switch (id?.toLowerCase().trim()) {
       'visual_tags' || 'tags' => VlmPromptPreset.visualTags,
       'booru_tags' || 'booru' => VlmPromptPreset.booruTags,
+      'forensic' || 'fornsc' || 'ela' => VlmPromptPreset.forensic,
       'custom' => VlmPromptPreset.custom,
       _ => VlmPromptPreset.description,
     };

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/vlm_config.dart';
 import '../models/vlm_prompt_preset.dart';
+import '../services/rust_image_service.dart';
 import '../services/storage/config_storage.dart';
 import '../services/storage/file_config_storage.dart';
 import '../services/vlm/vlm_client.dart';
@@ -10,12 +11,17 @@ import 'crunch_state_controller.dart';
 /// Controller managing the VLM (Vision Language Model) inspection state,
 /// persistence, prompt presets, 5-item MRU history, and streaming execution.
 class VlmController extends ChangeNotifier {
-  VlmController({IConfigStorage? configStorage, VlmClient? vlmClient})
-    : _configStorage = configStorage ?? FileConfigStorage(),
-      _vlmClient = vlmClient ?? VlmClient();
+  VlmController({
+    IConfigStorage? configStorage,
+    VlmClient? vlmClient,
+    RustImageService? rustService,
+  }) : _configStorage = configStorage ?? FileConfigStorage(),
+       _vlmClient = vlmClient ?? VlmClient(),
+       _rustService = rustService ?? RustImageService.instance;
 
   final IConfigStorage _configStorage;
   final VlmClient _vlmClient;
+  final RustImageService _rustService;
 
   static const String configFileName = 'vlm_config.json';
 
@@ -110,10 +116,27 @@ class VlmController extends ChangeNotifier {
     }
   }
 
+  /// Toggles the [includeForensics] state and saves configuration.
+  Future<void> toggleIncludeForensics() async {
+    _config = _config.toggleIncludeForensics();
+    notifyListeners();
+    await _saveConfig();
+  }
+
+  /// Sets the [includeForensics] state and saves configuration.
+  Future<void> setIncludeForensics(bool enabled) async {
+    if (_config.includeForensics == enabled) return;
+    _config = _config.copyWith(includeForensics: enabled);
+    notifyListeners();
+    await _saveConfig();
+  }
+
   /// Initiates VLM caption streaming for the specified [imagePath].
   Future<void> crunch({
     required String imagePath,
     String? promptOverride,
+    int? elaScale,
+    int? strMinLen,
   }) async {
     abort();
 
@@ -137,6 +160,46 @@ class VlmController extends ChangeNotifier {
     _tokenCount = 0;
     _isStreaming = true;
     _stopwatch = Stopwatch()..start();
+
+    Uint8List? elaBytes;
+    String? extractedStrings;
+
+    if (_config.includeForensics) {
+      _state = const PipelineProcessing<String>(
+        'COMPUTING FORENSIC ELA & STRINGS...',
+      );
+      notifyListeners();
+
+      try {
+        elaBytes = await _rustService.generateElaFromFile(
+          imagePath,
+          scale: elaScale ?? 25,
+        );
+      } catch (e) {
+        debugPrint('VlmController: Error computing ELA for fusion: $e');
+      }
+
+      if (!_isStreaming) return;
+
+      try {
+        final raw = await _rustService.extractStringsFromFile(
+          imagePath,
+          minLen: strMinLen ?? 6,
+        );
+        final lines = raw.split('\n');
+        if (lines.length > 80) {
+          extractedStrings =
+              '${lines.take(80).join('\n')}\n[... truncated ${lines.length - 80} more strings ...]';
+        } else {
+          extractedStrings = raw;
+        }
+      } catch (e) {
+        debugPrint('VlmController: Error extracting strings for fusion: $e');
+      }
+
+      if (!_isStreaming) return;
+    }
+
     _state = PipelineProcessing<String>('CONTACTING VLM (${_config.model})...');
     notifyListeners();
 
@@ -145,6 +208,9 @@ class VlmController extends ChangeNotifier {
         imagePath: imagePath,
         prompt: prompt,
         config: _config,
+        elaBytes: elaBytes,
+        elaScale: elaScale ?? 25,
+        extractedStrings: extractedStrings,
       );
 
       await for (final token in stream) {

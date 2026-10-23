@@ -17,6 +17,10 @@ void main() {
         VlmPromptPreset.booruTags.resolvePrompt(null),
         contains('Danbooru-style'),
       );
+      expect(
+        VlmPromptPreset.forensic.resolvePrompt(null),
+        contains('Error Level Analysis ELA map'),
+      );
     });
 
     test('custom preset returns custom prompt when provided', () {
@@ -37,6 +41,9 @@ void main() {
       expect(VlmPromptPreset.fromId('visual_tags'), equals(VlmPromptPreset.visualTags));
       expect(VlmPromptPreset.fromId('booru'), equals(VlmPromptPreset.booruTags));
       expect(VlmPromptPreset.fromId('booru_tags'), equals(VlmPromptPreset.booruTags));
+      expect(VlmPromptPreset.fromId('forensic'), equals(VlmPromptPreset.forensic));
+      expect(VlmPromptPreset.fromId('fornsc'), equals(VlmPromptPreset.forensic));
+      expect(VlmPromptPreset.fromId('ela'), equals(VlmPromptPreset.forensic));
       expect(VlmPromptPreset.fromId('custom'), equals(VlmPromptPreset.custom));
       expect(VlmPromptPreset.fromId('unknown_gibberish'), equals(VlmPromptPreset.description));
     });
@@ -52,6 +59,7 @@ void main() {
       expect(config.customPrompt, isEmpty);
       expect(config.promptHistory, isEmpty);
       expect(config.effectivePrompt, equals(VlmPromptPreset.description.prompt));
+      expect(config.includeForensics, isFalse);
     });
 
     test('serializes and deserializes cleanly to JSON', () {
@@ -62,6 +70,7 @@ void main() {
         activePreset: VlmPromptPreset.visualTags,
         customPrompt: 'test prompt',
         promptHistory: ['prompt1', 'prompt2'],
+        includeForensics: true,
       );
 
       final jsonStr = original.toJsonString();
@@ -73,6 +82,16 @@ void main() {
       expect(restored.model, equals('minicpm-v'));
       expect(restored.activePreset, equals(VlmPromptPreset.visualTags));
       expect(restored.promptHistory, equals(['prompt1', 'prompt2']));
+      expect(restored.includeForensics, isTrue);
+    });
+
+    test('toggleIncludeForensics flips the boolean flag', () {
+      const config = VlmConfig();
+      expect(config.includeForensics, isFalse);
+      final toggledOn = config.toggleIncludeForensics();
+      expect(toggledOn.includeForensics, isTrue);
+      final toggledOff = toggledOn.toggleIncludeForensics();
+      expect(toggledOff.includeForensics, isFalse);
     });
 
     test('MRU push adds to front and removes duplicates', () {

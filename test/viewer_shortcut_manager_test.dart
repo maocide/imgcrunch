@@ -105,6 +105,99 @@ void main() {
 
       expect(actionTriggered, isFalse, reason: 'Ctrl+V should be ignored by viewer shortcuts so text paste can operate');
     });
+
+    testWidgets('unfocuses active EditableText when Escape is pressed', (tester) async {
+      final manager = ViewerShortcutManager();
+
+      final textController = TextEditingController();
+      final focusNode = FocusNode();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Shortcuts.manager(
+              manager: manager,
+              child: Actions(
+                actions: {},
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: textController,
+                      focusNode: focusNode,
+                      autofocus: true,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(focusNode.hasFocus, isTrue);
+
+      // Send Escape
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+
+      expect(focusNode.hasFocus, isFalse, reason: 'Escape should defocus the active text field');
+    });
+
+    testWidgets('does not ignore shortcuts when a readOnly EditableText has focus', (tester) async {
+      bool actionTriggered = false;
+
+      final manager = ViewerShortcutManager();
+
+      final intent = _TestIntent(() {
+        actionTriggered = true;
+      });
+
+      manager.shortcuts = {
+        const SingleActivator(LogicalKeyboardKey.digit1): intent,
+      };
+
+      final textController = TextEditingController(text: 'Terminal output');
+      final focusNode = FocusNode();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Shortcuts.manager(
+              manager: manager,
+              child: Actions(
+                actions: {
+                  _TestIntent: CallbackAction<_TestIntent>(
+                    onInvoke: (i) => i.callback(),
+                  ),
+                },
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: textController,
+                      focusNode: focusNode,
+                      readOnly: true,
+                      autofocus: true,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(focusNode.hasFocus, isTrue);
+
+      // Send digit 1
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
+      await tester.pump();
+
+      expect(actionTriggered, isTrue, reason: 'Read-only text must not block viewer shortcuts');
+    });
   });
 }
 

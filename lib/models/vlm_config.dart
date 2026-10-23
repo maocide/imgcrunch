@@ -15,6 +15,7 @@ class VlmConfig {
     this.activePreset = VlmPromptPreset.description,
     this.customPrompt = '',
     this.promptHistory = const [],
+    this.includeForensics = false,
   });
 
   static const String defaultEndpoint = 'http://localhost:11434/v1';
@@ -39,8 +40,16 @@ class VlmConfig {
   /// Most recently used (MRU) prompt list, capped at [maxMruHistory] items.
   final List<String> promptHistory;
 
+  /// Whether to include computed forensic telemetry (ELA image + extracted binary strings) in VLM payload.
+  final bool includeForensics;
+
   /// Resolves the actual prompt text that will be sent to the VLM engine.
   String get effectivePrompt => activePreset.resolvePrompt(customPrompt);
+
+  /// Toggles the [includeForensics] state.
+  VlmConfig toggleIncludeForensics() {
+    return copyWith(includeForensics: !includeForensics);
+  }
 
   /// Pushes a custom prompt to the MRU history list.
   ///
@@ -72,6 +81,7 @@ class VlmConfig {
     VlmPromptPreset? activePreset,
     String? customPrompt,
     List<String>? promptHistory,
+    bool? includeForensics,
   }) {
     return VlmConfig(
       endpoint: endpoint ?? this.endpoint,
@@ -80,6 +90,7 @@ class VlmConfig {
       activePreset: activePreset ?? this.activePreset,
       customPrompt: customPrompt ?? this.customPrompt,
       promptHistory: promptHistory ?? this.promptHistory,
+      includeForensics: includeForensics ?? this.includeForensics,
     );
   }
 
@@ -91,6 +102,7 @@ class VlmConfig {
       'activePreset': activePreset.id,
       'customPrompt': customPrompt,
       'promptHistory': promptHistory,
+      'includeForensics': includeForensics,
     };
   }
 
@@ -119,6 +131,7 @@ class VlmConfig {
       activePreset: VlmPromptPreset.fromId(rawPreset),
       customPrompt: (json['customPrompt'] as String?) ?? '',
       promptHistory: history,
+      includeForensics: (json['includeForensics'] as bool?) ?? false,
     );
   }
 

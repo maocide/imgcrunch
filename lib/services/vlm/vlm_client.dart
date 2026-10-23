@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../models/vlm_config.dart';
@@ -66,6 +67,9 @@ class VlmClient {
     required String imagePath,
     required String prompt,
     required VlmConfig config,
+    Uint8List? elaBytes,
+    int? elaScale,
+    String? extractedStrings,
   }) async* {
     abort(); // Reset any existing request
     _isAborted = false;
@@ -94,18 +98,118 @@ class VlmClient {
           'content': prompt.trim(),
         });
       }
+
+      final userContent = <Map<String, dynamic>>[];
+
+      // Resolve file and ground truth environment metadata
+      String? filename;
+      int? fileSize;
+      DateTime? lastModified;
+      bool isClipboard = false;
+
+      try {
+        final file = File(imagePath);
+        if (await file.exists()) {
+          final segments = file.uri.pathSegments;
+          if (segments.isNotEmpty) {
+            filename = segments.lastWhere((s) => s.isNotEmpty, orElse: () => 'unknown');
+          }
+          isClipboard = filename?.startsWith('imgcrunch_clipboard_') ?? false;
+          final stat = await file.stat();
+          fileSize = stat.size;
+          lastModified = stat.modified;
+        }
+      } catch (_) {
+        // Gracefully ignore stat errors
+      }
+
+      final nowUtc = DateTime.now().toUtc();
+      final nowUtcStr =
+          '${nowUtc.year.toString().padLeft(4, '0')}-${nowUtc.month.toString().padLeft(2, '0')}-${nowUtc.day.toString().padLeft(2, '0')} '
+          '${nowUtc.hour.toString().padLeft(2, '0')}:${nowUtc.minute.toString().padLeft(2, '0')}:${nowUtc.second.toString().padLeft(2, '0')} UTC';
+
+      final groundingBuffer = StringBuffer();
+      groundingBuffer.writeln('GROUND TRUTH ENVIRONMENT & METADATA:');
+      groundingBuffer.writeln('- Current Analysis Timestamp: $nowUtcStr');
+      if (filename != null) {
+        if (isClipboard) {
+          groundingBuffer.writeln('- Source: Pasted image from system clipboard');
+          if (fileSize != null) {
+            groundingBuffer.writeln('- Buffer Size: ${_formatBytes(fileSize)} ($fileSize bytes)');
+          }
+        } else {
+          groundingBuffer.writeln('- Target Filename: $filename');
+          if (fileSize != null) {
+            groundingBuffer.writeln('- File Size: ${_formatBytes(fileSize)} ($fileSize bytes)');
+          }
+          if (lastModified != null) {
+            final modUtc = lastModified.toUtc();
+            final modUtcStr =
+                '${modUtc.year.toString().padLeft(4, '0')}-${modUtc.month.toString().padLeft(2, '0')}-${modUtc.day.toString().padLeft(2, '0')} '
+                '${modUtc.hour.toString().padLeft(2, '0')}:${modUtc.minute.toString().padLeft(2, '0')}:${modUtc.second.toString().padLeft(2, '0')} UTC';
+            groundingBuffer.writeln('- Filesystem Modified: $modUtcStr');
+          }
+        }
+      }
+
+      if (elaBytes != null ||
+          (extractedStrings != null && extractedStrings.trim().isNotEmpty)) {
+        final buffer = StringBuffer();
+        buffer.write(groundingBuffer.toString());
+        buffer.writeln('\nFORENSIC MULTIMODAL TELEMETRY:');
+        buffer.writeln('- Image 1: Original input image (RGB visual capture).');
+        if (elaBytes != null) {
+          buffer.writeln(
+            '- Image 2: Error Level Analysis (ELA) difference map (compression scale factor: ${elaScale ?? 25}). High contrast/brightness denotes high compression error/potential splicing.',
+          );
+        }
+        if (extractedStrings != null && extractedStrings.trim().isNotEmpty) {
+          buffer.writeln('- Extracted Binary Strings (printable ASCII):');
+          buffer.writeln('```');
+          buffer.writeln(extractedStrings.trim());
+          buffer.writeln('```');
+        }
+        buffer.writeln(
+          '\nAnalyze and correlate Image 1 against Image 2 (ELA) and the binary strings according to your instructions.',
+        );
+
+        userContent.add({
+          'type': 'text',
+          'text': buffer.toString(),
+        });
+        userContent.add({
+          'type': 'image_url',
+          'image_url': {'url': dataUri},
+        });
+        if (elaBytes != null) {
+          final elaDataUri = VlmVisionHelper.toDataUriFromBytes(
+            elaBytes,
+            mimeType: 'image/png',
+          );
+          userContent.add({
+            'type': 'image_url',
+            'image_url': {'url': elaDataUri},
+          });
+        }
+      } else {
+        final buffer = StringBuffer();
+        buffer.write(groundingBuffer.toString());
+        buffer.writeln(
+          '\nAnalyze and inspect the provided image according to your instructions.',
+        );
+        userContent.add({
+          'type': 'text',
+          'text': buffer.toString(),
+        });
+        userContent.add({
+          'type': 'image_url',
+          'image_url': {'url': dataUri},
+        });
+      }
+
       messages.add({
         'role': 'user',
-        'content': [
-          {
-            'type': 'text',
-            'text': 'Analyze and inspect the provided image according to your instructions.',
-          },
-          {
-            'type': 'image_url',
-            'image_url': {'url': dataUri},
-          },
-        ],
+        'content': userContent,
       });
 
       final payload = {
@@ -211,5 +315,11 @@ class VlmClient {
       buffer.write(token);
     }
     return buffer.toString();
+  }
+
+  static String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
   }
 }

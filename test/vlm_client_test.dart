@@ -158,6 +158,64 @@ void main() {
       }
     });
 
+    test('sends multimodal forensic telemetry payload with ELA and strings', () async {
+      Map<String, dynamic>? capturedPayload;
+      final mockClient = MockStreamHttpClient((request) async {
+        if (request is http.Request) {
+          capturedPayload = jsonDecode(request.body) as Map<String, dynamic>;
+        }
+        final sse = 'data: {"choices":[{"delta":{"content":"Tampering detected"}}]}\n\ndata: [DONE]\n\n';
+        return http.StreamedResponse(
+          Stream.value(utf8.encode(sse)),
+          200,
+          headers: {'content-type': 'text/event-stream'},
+        );
+      });
+
+      final tempDir = await Directory.systemTemp.createTemp('vlm_forensic_test_');
+      final testFile = File('${tempDir.path}/test.png');
+      await testFile.writeAsBytes([0x89, 0x50, 0x4E, 0x47]);
+
+      try {
+        final client = VlmClient(httpClient: mockClient);
+        const config = VlmConfig();
+        final dummyEla = Uint8List.fromList([1, 2, 3, 4]);
+
+        final tokens = await client.streamCaption(
+          imagePath: testFile.path,
+          prompt: 'Inspect anomalies',
+          config: config,
+          elaBytes: dummyEla,
+          elaScale: 25,
+          extractedStrings: 'PHOTOSHOP_TAG_DETECTED\nCREATOR: USAGI',
+        ).toList();
+
+        expect(tokens, equals(['Tampering detected']));
+        expect(capturedPayload, isNotNull);
+
+        final messages = capturedPayload!['messages'] as List;
+        final userMsg = messages.firstWhere((m) => m['role'] == 'user') as Map<String, dynamic>;
+        final contentList = userMsg['content'] as List;
+
+        expect(contentList.length, equals(3));
+        expect(contentList[0]['type'], equals('text'));
+        expect(contentList[0]['text'], contains('GROUND TRUTH ENVIRONMENT & METADATA'));
+        expect(contentList[0]['text'], contains('Current Analysis Timestamp:'));
+        expect(contentList[0]['text'], contains('Target Filename: test.png'));
+        expect(contentList[0]['text'], contains('FORENSIC MULTIMODAL TELEMETRY'));
+        expect(contentList[0]['text'], contains('compression scale factor: 25'));
+        expect(contentList[0]['text'], contains('PHOTOSHOP_TAG_DETECTED'));
+
+        expect(contentList[1]['type'], equals('image_url'));
+        expect(contentList[1]['image_url']['url'], startsWith('data:image/png;base64,'));
+
+        expect(contentList[2]['type'], equals('image_url'));
+        expect(contentList[2]['image_url']['url'], startsWith('data:image/png;base64,'));
+      } finally {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
     test('throws VlmApiException on HTTP error', () async {
       final mockClient = MockStreamHttpClient((request) async {
         const errorJson = '{"error": {"message": "Invalid API key"}}';

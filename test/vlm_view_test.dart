@@ -99,10 +99,12 @@ void main() {
       expect(find.text('VLM // VISION ANALYSIS'), findsOneWidget);
       expect(find.text('NEURAL VISION READY'), findsOneWidget);
 
-      // Check preset pills
+      // Check preset pills & fusion button
       expect(find.text('DESC'), findsOneWidget);
       expect(find.text('TAGS'), findsOneWidget);
       expect(find.text('BOORU'), findsOneWidget);
+      expect(find.text('FORNSC'), findsOneWidget);
+      expect(find.text('FUSION: OFF'), findsOneWidget);
       expect(find.text('MRU ▼'), findsOneWidget);
       expect(find.text('CRUNCH NEURAL VLM'), findsOneWidget);
 
@@ -131,6 +133,24 @@ void main() {
         find.text(VlmPromptPreset.booruTags.prompt),
         findsOneWidget,
       );
+
+      // Tap FORNSC pill: activates forensic preset AND turns FUSION ON
+      await tester.tap(find.text('FORNSC'));
+      await tester.pumpAndSettle();
+
+      expect(vlmController.config.activePreset, equals(VlmPromptPreset.forensic));
+      expect(vlmController.config.includeForensics, isTrue);
+      expect(find.text('FUSION: ON'), findsOneWidget);
+      expect(
+        find.text(VlmPromptPreset.forensic.prompt),
+        findsOneWidget,
+      );
+
+      // Tap FUSION button: toggles it back to OFF
+      await tester.tap(find.text('FUSION: ON'));
+      await tester.pumpAndSettle();
+      expect(vlmController.config.includeForensics, isFalse);
+      expect(find.text('FUSION: OFF'), findsOneWidget);
 
       // Tap CFG button opens settings dialog
       await tester.tap(find.text('CFG'));

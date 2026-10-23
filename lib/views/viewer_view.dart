@@ -38,7 +38,7 @@ class ViewerView extends StatefulWidget {
 class _ViewerViewState extends State<ViewerView> {
   final TransformationController _transformController =
       TransformationController();
-  final FocusNode _focusNode = FocusNode();
+  final FocusScopeNode _focusScopeNode = FocusScopeNode();
   late final CrunchStateController _crunchController = CrunchStateController(
     strMinLen: 6,
   );
@@ -84,7 +84,7 @@ class _ViewerViewState extends State<ViewerView> {
     _transformController.dispose();
     _crunchController.removeListener(_onCrunchStateChange);
     _crunchController.dispose();
-    _focusNode.dispose();
+    _focusScopeNode.dispose();
     super.dispose();
   }
 
@@ -908,7 +908,15 @@ class _ViewerViewState extends State<ViewerView> {
         _bumpHud();
         _crunchController.setMode(ViewMode.normal);
       },
+      const SingleActivator(LogicalKeyboardKey.digit1, alt: true): () {
+        _bumpHud();
+        _crunchController.setMode(ViewMode.normal);
+      },
       const SingleActivator(LogicalKeyboardKey.digit2): () {
+        _bumpHud();
+        _crunchController.setMode(ViewMode.ela);
+      },
+      const SingleActivator(LogicalKeyboardKey.digit2, alt: true): () {
         _bumpHud();
         _crunchController.setMode(ViewMode.ela);
       },
@@ -916,11 +924,23 @@ class _ViewerViewState extends State<ViewerView> {
         _bumpHud();
         _crunchController.setMode(ViewMode.ascii);
       },
+      const SingleActivator(LogicalKeyboardKey.digit3, alt: true): () {
+        _bumpHud();
+        _crunchController.setMode(ViewMode.ascii);
+      },
       const SingleActivator(LogicalKeyboardKey.digit4): () {
         _bumpHud();
         _crunchController.setMode(ViewMode.strings);
       },
+      const SingleActivator(LogicalKeyboardKey.digit4, alt: true): () {
+        _bumpHud();
+        _crunchController.setMode(ViewMode.strings);
+      },
       const SingleActivator(LogicalKeyboardKey.digit5): () {
+        _bumpHud();
+        _crunchController.setMode(ViewMode.vlm);
+      },
+      const SingleActivator(LogicalKeyboardKey.digit5, alt: true): () {
         _bumpHud();
         _crunchController.setMode(ViewMode.vlm);
       },
@@ -965,8 +985,8 @@ class _ViewerViewState extends State<ViewerView> {
               onInvoke: (_ViewerShortcutIntent intent) => intent.callback(),
             ),
           },
-          child: Focus(
-            focusNode: _focusNode,
+          child: FocusScope(
+            node: _focusScopeNode,
             autofocus: true,
             child: DropTarget(
               onDragEntered: (_) => setState(() => _isDragging = true),
@@ -1241,10 +1261,18 @@ class ViewerShortcutManager extends ShortcutManager {
   @override
   KeyEventResult handleKeypress(BuildContext context, KeyEvent event) {
     final primaryFocus = FocusManager.instance.primaryFocus;
-    final widget = primaryFocus?.context?.widget;
-    if (widget is EditableText ||
-        (primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() !=
-            null)) {
+    final focusContext = primaryFocus?.context;
+    final editable = focusContext?.widget is EditableText
+        ? focusContext!.widget as EditableText
+        : focusContext?.findAncestorWidgetOfExactType<EditableText>();
+
+    final isWritable = editable != null && !editable.readOnly;
+    if (isWritable) {
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.escape) {
+        primaryFocus?.unfocus();
+        return KeyEventResult.handled;
+      }
       return KeyEventResult.ignored;
     }
     return super.handleKeypress(context, event);

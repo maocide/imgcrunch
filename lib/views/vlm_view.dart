@@ -36,7 +36,6 @@ class _VlmViewState extends State<VlmView> {
   late final TextEditingController _terminalTextCtrl;
   final ScrollController _terminalScrollCtrl = ScrollController();
   final FocusNode _promptFocusNode = FocusNode();
-  final FocusNode _terminalFocusNode = FocusNode();
   StreamSubscription<String>? _tokenStreamSub;
 
   VlmController get _vlmCtrl => widget.crunchController.vlmController;
@@ -48,8 +47,31 @@ class _VlmViewState extends State<VlmView> {
       text: _vlmCtrl.config.effectivePrompt,
     );
     _terminalTextCtrl = TextEditingController(text: _vlmCtrl.accumulatedText);
+    _promptFocusNode.addListener(_onFocusChanged);
+    _promptFocusNode.onKeyEvent = (node, event) {
+      if (event is KeyDownEvent) {
+        if (event.logicalKey == LogicalKeyboardKey.enter &&
+            HardwareKeyboard.instance.isControlPressed) {
+          _crunch();
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.escape) {
+          if (_vlmCtrl.isStreaming) {
+            _vlmCtrl.abort();
+          } else {
+            _promptFocusNode.unfocus();
+          }
+          return KeyEventResult.handled;
+        }
+      }
+      return KeyEventResult.ignored;
+    };
     _vlmCtrl.addListener(_onVlmStateChanged);
     _tokenStreamSub = _vlmCtrl.tokenStream.listen(_onTokenReceived);
+  }
+
+  void _onFocusChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onTokenReceived(String token) {
@@ -75,12 +97,12 @@ class _VlmViewState extends State<VlmView> {
   @override
   void dispose() {
     _tokenStreamSub?.cancel();
+    _promptFocusNode.removeListener(_onFocusChanged);
     _vlmCtrl.removeListener(_onVlmStateChanged);
     _promptTextCtrl.dispose();
     _terminalTextCtrl.dispose();
     _terminalScrollCtrl.dispose();
     _promptFocusNode.dispose();
-    _terminalFocusNode.dispose();
     super.dispose();
   }
 
@@ -121,6 +143,8 @@ class _VlmViewState extends State<VlmView> {
     await _vlmCtrl.crunch(
       imagePath: widget.imagePath,
       promptOverride: _promptTextCtrl.text.trim(),
+      elaScale: widget.crunchController.elaScale,
+      strMinLen: widget.crunchController.strMinLen,
     );
   }
 
@@ -145,39 +169,35 @@ class _VlmViewState extends State<VlmView> {
   Widget build(BuildContext context) {
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.enter, control: true): _crunch,
         const SingleActivator(LogicalKeyboardKey.escape): () {
           if (_vlmCtrl.isStreaming) {
             _vlmCtrl.abort();
           }
         },
       },
-      child: Focus(
-        autofocus: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 720;
-            if (isWide) {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(flex: 5, child: _buildImagePane()),
-                  Container(width: 2, color: AppTheme.xCopySteelDark),
-                  Expanded(flex: 6, child: _buildConsolePane()),
-                ],
-              );
-            } else {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(flex: 4, child: _buildImagePane()),
-                  Container(height: 2, color: AppTheme.xCopySteelDark),
-                  Expanded(flex: 6, child: _buildConsolePane()),
-                ],
-              );
-            }
-          },
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 720;
+          if (isWide) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(flex: 5, child: _buildImagePane()),
+                Container(width: 2, color: AppTheme.xCopySteelDark),
+                Expanded(flex: 6, child: _buildConsolePane()),
+              ],
+            );
+          } else {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(flex: 4, child: _buildImagePane()),
+                Container(height: 2, color: AppTheme.xCopySteelDark),
+                Expanded(flex: 6, child: _buildConsolePane()),
+              ],
+            );
+          }
+        },
       ),
     );
   }
@@ -419,25 +439,18 @@ class _VlmViewState extends State<VlmView> {
       );
     }
 
-    return TextField(
-      controller: _terminalTextCtrl,
-      focusNode: _terminalFocusNode,
-      scrollController: _terminalScrollCtrl,
-      maxLines: null,
-      expands: true,
-      readOnly: vlm.isStreaming,
-      style: const TextStyle(
-        fontFamily: 'monospace',
-        fontSize: 12,
-        color: AppTheme.xCopyGreen,
-        height: 1.4,
-        letterSpacing: 0.5,
-      ),
-      cursorColor: AppTheme.xCopyAmber,
-      decoration: const InputDecoration(
-        border: InputBorder.none,
-        isDense: true,
-        contentPadding: EdgeInsets.zero,
+    return SingleChildScrollView(
+      controller: _terminalScrollCtrl,
+      child: SelectableText(
+        _terminalTextCtrl.text,
+        style: const TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 12,
+          color: AppTheme.xCopyGreen,
+          height: 1.4,
+          letterSpacing: 0.5,
+        ),
+        cursorColor: AppTheme.xCopyAmber,
       ),
     );
   }
@@ -474,6 +487,27 @@ class _VlmViewState extends State<VlmView> {
               isSelected: activePreset == VlmPromptPreset.booruTags,
               onPressed: () => _selectPreset(VlmPromptPreset.booruTags),
             ),
+            RetroButton(
+              label: 'FORNSC',
+              fontSize: 10,
+              isSelected: activePreset == VlmPromptPreset.forensic,
+              textColor: AppTheme.xCopyAmber,
+              onPressed: () {
+                _selectPreset(VlmPromptPreset.forensic);
+                if (!vlm.config.includeForensics) {
+                  vlm.toggleIncludeForensics();
+                }
+              },
+            ),
+            RetroButton(
+              label: vlm.config.includeForensics ? 'FUSION: ON' : 'FUSION: OFF',
+              fontSize: 10,
+              isSelected: vlm.config.includeForensics,
+              textColor: vlm.config.includeForensics
+                  ? AppTheme.xCopyAmber
+                  : AppTheme.xCopyRivet,
+              onPressed: () => vlm.toggleIncludeForensics(),
+            ),
             // 5-item MRU history popup
             PopupMenuButton<String>(
               tooltip: 'Recent Custom Prompts',
@@ -491,7 +525,7 @@ class _VlmViewState extends State<VlmView> {
                         style: TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 11,
-                          color: AppTheme.xCopySteelLight,
+                          color: AppTheme.xCopyRivet,
                         ),
                       ),
                     ),
@@ -540,15 +574,18 @@ class _VlmViewState extends State<VlmView> {
           decoration: BoxDecoration(
             color: AppTheme.xCopyCrtBlack.withValues(alpha: 0.35),
             border: Border.all(
-              color: AppTheme.xCopyCyan.withValues(alpha: 0.6),
-              width: 1.0,
+              color: _promptFocusNode.hasFocus
+                  ? AppTheme.xCopyCyan
+                  : AppTheme.xCopyCyanDim.withValues(alpha: 0.4),
+              width: _promptFocusNode.hasFocus ? 1.5 : 1.0,
             ),
           ),
           child: TextField(
             controller: _promptTextCtrl,
             focusNode: _promptFocusNode,
-            maxLines: 6,
-            minLines: 3,
+            maxLines: 8,
+            minLines: 5,
+            onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
             style: const TextStyle(
               fontFamily: 'monospace',
               fontSize: 12,
@@ -557,9 +594,9 @@ class _VlmViewState extends State<VlmView> {
               height: 1.35,
             ),
             cursorColor: AppTheme.xCopyGreen,
-            decoration: InputDecoration(
+            decoration: const InputDecoration(
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
+              contentPadding: EdgeInsets.symmetric(
                 horizontal: 10,
                 vertical: 8,
               ),
@@ -568,7 +605,8 @@ class _VlmViewState extends State<VlmView> {
               hintStyle: TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 11,
-                color: AppTheme.xCopySteelLight.withValues(alpha: 0.6),
+                color: AppTheme.xCopyCyanDim,
+                letterSpacing: 0.5,
               ),
             ),
             onChanged: (text) {
@@ -583,11 +621,15 @@ class _VlmViewState extends State<VlmView> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'TIP: CTRL+ENTER TO CRUNCH',
-              style: TextStyle(
+              _promptFocusNode.hasFocus
+                  ? 'TIP: CTRL+ENTER TO CRUNCH • ESC TO DEFOCUS'
+                  : 'TIP: CTRL+ENTER TO CRUNCH',
+              style: const TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 9.5,
-                color: AppTheme.xCopySteelLight,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.xCopyAmber,
+                letterSpacing: 0.8,
               ),
             ),
             if (vlm.isStreaming)

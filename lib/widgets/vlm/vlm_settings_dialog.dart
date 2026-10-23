@@ -33,6 +33,7 @@ class _VlmSettingsDialogState extends State<VlmSettingsDialog> {
   late final TextEditingController _apiKeyCtrl;
   late final TextEditingController _modelCtrl;
   bool _obscureKey = true;
+  bool _includeForensics = false;
 
   @override
   void initState() {
@@ -41,6 +42,7 @@ class _VlmSettingsDialogState extends State<VlmSettingsDialog> {
     _endpointCtrl = TextEditingController(text: cfg.endpoint);
     _apiKeyCtrl = TextEditingController(text: cfg.apiKey);
     _modelCtrl = TextEditingController(text: cfg.model);
+    _includeForensics = cfg.includeForensics;
   }
 
   @override
@@ -60,6 +62,7 @@ class _VlmSettingsDialogState extends State<VlmSettingsDialog> {
       model: _modelCtrl.text.trim().isNotEmpty
           ? _modelCtrl.text.trim()
           : VlmConfig.defaultModel,
+      includeForensics: _includeForensics,
     );
 
     await widget.controller.updateConfig(updated);
@@ -158,7 +161,62 @@ class _VlmSettingsDialogState extends State<VlmSettingsDialog> {
                 controller: _modelCtrl,
                 hintText: 'e.g. qwen2.5-vl, minicpm-v, llava, gpt-4o-mini',
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 14),
+
+              // Forensic Fusion Telemetry Toggle
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Checkbox(
+                    value: _includeForensics,
+                    activeColor: AppTheme.xCopyAmber,
+                    checkColor: AppTheme.xCopyCrtBlack,
+                    onChanged: (val) {
+                      setState(() {
+                        _includeForensics = val ?? false;
+                      });
+                    },
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _includeForensics = !_includeForensics;
+                        });
+                      },
+                      child: const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(height: 10),
+                          Text(
+                            'ATTACH FORENSIC TELEMETRY (ELA + STRINGS)',
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.xCopyAmber,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                          SizedBox(height: 3),
+                          Text(
+                            'Sends computed ELA difference map and extracted binary strings to VLM for forgery and manipulation analysis.',
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 10,
+                              color: AppTheme.xCopyRivet,
+                              letterSpacing: 0.3,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
 
               // Action buttons
               Row(
@@ -166,7 +224,7 @@ class _VlmSettingsDialogState extends State<VlmSettingsDialog> {
                 children: [
                   RetroButton(
                     label: 'CANCEL',
-                    textColor: AppTheme.xCopySteelLight,
+                    textColor: AppTheme.xCopyRivet,
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 10),
@@ -225,10 +283,11 @@ class _VlmSettingsDialogState extends State<VlmSettingsDialog> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           border: InputBorder.none,
           hintText: hintText,
-          hintStyle: TextStyle(
+          hintStyle: const TextStyle(
             fontFamily: 'monospace',
             fontSize: 11,
-            color: AppTheme.xCopySteelLight.withValues(alpha: 0.6),
+            color: AppTheme.xCopyCyanDim,
+            letterSpacing: 0.5,
           ),
         ),
       ),
