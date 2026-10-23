@@ -1,7 +1,7 @@
 use std::str::from_utf8;
 
 pub fn extract_strings(raw_bytes: Vec<u8>, min_len: usize) -> Result<String, String> {
-    println!("Hello this is strings...\n");
+    //println!("Hello this is strings...\n");
 
     let mut results = Vec::<String>::new();
     let mut buf = Vec::<u8>::new();

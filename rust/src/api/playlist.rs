@@ -65,6 +65,7 @@ pub fn list_files(path: &str, order: u8, direction: u8) -> Result<Vec<String>, S
 
     let list_iter = fs::read_dir(path).map_err(|e| e.to_string())?;
 
+    // split paths to do the least possible work
     let result_paths = match sort_order {
         SortOrder::Name => {
             let mut valid_paths: Vec<_> = list_iter

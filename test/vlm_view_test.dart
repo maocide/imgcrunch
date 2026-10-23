@@ -150,7 +150,14 @@ void main() {
       await tester.tap(find.text('FUSION: ON'));
       await tester.pumpAndSettle();
       expect(vlmController.config.includeForensics, isFalse);
-      expect(find.text('FUSION: OFF'), findsOneWidget);
+      // Verify MD / RAW toggle button in header
+      expect(find.text('MD'), findsOneWidget);
+      await tester.tap(find.text('MD'));
+      await tester.pumpAndSettle();
+      expect(find.text('RAW'), findsOneWidget);
+      await tester.tap(find.text('RAW'));
+      await tester.pumpAndSettle();
+      expect(find.text('MD'), findsOneWidget);
 
       // Tap CFG button opens settings dialog
       await tester.tap(find.text('CFG'));

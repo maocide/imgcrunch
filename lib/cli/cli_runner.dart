@@ -129,11 +129,12 @@ OPTIONS:
   -w, --width <INT>           Target ASCII art character width (default: 100)
       --aspect <FLOAT>        ASCII font aspect ratio correction (default: 0.7)
   -n, --min-len <INT>         Minimum contiguous string byte length (default: 6)
-  -m, --mode <MODE>           Launch GUI in specific mode (normal, ela, ascii, strings)
+  -m, --mode <MODE>           Launch GUI in specific mode (normal, ela, ascii, strings, vlm)
 
 EXAMPLES:
   imgcrunch photo.jpg                     Launch interactive desktop GUI
   imgcrunch --mode=ela photo.jpg          Launch GUI directly in ELA mode
+  imgcrunch --mode=vlm photo.jpg          Launch GUI directly in VLM Neural mode
   imgcrunch --ela photo.jpg               Save photo_ela.png in same directory
   imgcrunch --ela photo.jpg -o diff.png   Save diff.png with scale 25
   imgcrunch --ascii photo.jpg -w 120      Print ASCII art directly to terminal

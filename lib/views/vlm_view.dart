@@ -9,6 +9,7 @@ import '../theme/app_theme.dart';
 import '../widgets/retro_button.dart';
 import '../widgets/retro_led.dart';
 import '../widgets/retro_panel.dart';
+import '../widgets/vlm/retro_markdown_view.dart';
 import '../widgets/vlm/vlm_settings_dialog.dart';
 
 /// Dedicated split-deck view for Mode 5: VLM Neural Inspection.
@@ -37,6 +38,7 @@ class _VlmViewState extends State<VlmView> {
   final ScrollController _terminalScrollCtrl = ScrollController();
   final FocusNode _promptFocusNode = FocusNode();
   StreamSubscription<String>? _tokenStreamSub;
+  bool _showRawOutput = false;
 
   VlmController get _vlmCtrl => widget.crunchController.vlmController;
 
@@ -295,6 +297,20 @@ class _VlmViewState extends State<VlmView> {
               ),
               const SizedBox(width: 6),
               RetroButton(
+                label: _showRawOutput ? 'RAW' : 'MD',
+                fontSize: 10,
+                isSelected: !_showRawOutput,
+                textColor: _showRawOutput
+                    ? AppTheme.xCopySteelLight
+                    : AppTheme.xCopyCyan,
+                onPressed: () {
+                  setState(() {
+                    _showRawOutput = !_showRawOutput;
+                  });
+                },
+              ),
+              const SizedBox(width: 6),
+              RetroButton(
                 label: 'COPY',
                 fontSize: 10,
                 onPressed:
@@ -441,17 +457,19 @@ class _VlmViewState extends State<VlmView> {
 
     return SingleChildScrollView(
       controller: _terminalScrollCtrl,
-      child: SelectableText(
-        _terminalTextCtrl.text,
-        style: const TextStyle(
-          fontFamily: 'monospace',
-          fontSize: 12,
-          color: AppTheme.xCopyGreen,
-          height: 1.4,
-          letterSpacing: 0.5,
-        ),
-        cursorColor: AppTheme.xCopyAmber,
-      ),
+      child: _showRawOutput
+          ? SelectableText(
+              _terminalTextCtrl.text,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: AppTheme.xCopyGreen,
+                height: 1.4,
+                letterSpacing: 0.5,
+              ),
+              cursorColor: AppTheme.xCopyAmber,
+            )
+          : RetroMarkdownView(data: _terminalTextCtrl.text),
     );
   }
 

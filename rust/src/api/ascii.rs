@@ -7,7 +7,7 @@ pub fn convert_to_ascii(
     target_width: usize,
     char_aspect: f32,
 ) -> Result<String, String> {
-    println!("Hello this is ascii...\n");
+    //println!("Hello this is ascii...\n");
 
     let orig_pixels = image::load_from_memory(&raw_bytes)
         .map_err(|e| e.to_string())? // convert ImageError to String and pop
@@ -65,8 +65,8 @@ pub fn convert_to_ascii_image(
     target_width: usize,
     char_aspect: f32,
 ) -> Result<(Vec<u8>, String), String> {
-    // Drawing color
-    let translucent_green = Rgba([0u8, 255u8, 0u8, 127u8]);
+    // green drawing color (matches AppTheme.xCopyGreen #00FF66 in dart)
+    let phosphor_green = Rgba([0u8, 255u8, 102u8, 245u8]);
     // font scale
     let scale: usize = 18;
 
@@ -97,7 +97,7 @@ pub fn convert_to_ascii_image(
 
         imageproc::drawing::draw_text_mut(
             &mut img,
-            translucent_green,
+            phosphor_green,
             0,
             y as i32,
             scale as f32,

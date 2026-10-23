@@ -19,6 +19,7 @@ IMGCRUNCH Installer
 Usage: ./install.sh [OPTIONS]
 
 Options:
+  --clean          Clean Flutter and Rust build caches before building (cargo clean + flutter clean)
   --skip-build     Skip running 'flutter build linux --release' (use existing bundle)
   --no-default     Do not register imgcrunch as the default system image viewer
   --uninstall      Remove imgcrunch from ~/.local (binary, icons, desktop entry)
@@ -45,11 +46,16 @@ uninstall_app() {
     exit 0
 }
 
+CLEAN_BUILD=0
 SKIP_BUILD=0
 SET_DEFAULT=1
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --clean)
+            CLEAN_BUILD=1
+            shift
+            ;;
         --skip-build)
             SKIP_BUILD=1
             shift
@@ -74,6 +80,17 @@ done
 echo "=================================================="
 echo "   IMGCRUNCH // Linux Desktop Installer           "
 echo "=================================================="
+
+# 0. Clean build caches if requested
+if [[ ${CLEAN_BUILD} -eq 1 ]]; then
+    echo ">> [0/5] Purging Flutter and Rust build caches..."
+    cd "${SCRIPT_DIR}"
+    if command -v cargo &>/dev/null && [[ -f "rust/Cargo.toml" ]]; then
+        cargo clean --manifest-path rust/Cargo.toml
+    fi
+    flutter clean
+    flutter pub get
+fi
 
 # 1. Build release bundle if needed
 BUNDLE_DIR="${SCRIPT_DIR}/build/linux/x64/release/bundle"
