@@ -1,6 +1,8 @@
 use image_crunch::api::ascii::convert_to_ascii;
 use image_crunch::api::ascii::convert_to_ascii_image;
 use image_crunch::api::ela::process_ela_bytes;
+use image_crunch::api::image_resize::image_resize;
+use image_crunch::api::image_resize::image_thumbnail;
 use image_crunch::api::playlist::list_files;
 use image_crunch::api::strings::extract_strings;
 use std::error::Error;
@@ -29,6 +31,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         for item in list.iter() {
             print!("{item}\n");
         }
+
+        let ela = image_thumbnail(file_bytes, 400, 800).map_err(|e| e)?;
+        std::fs::write("zombillie_resize.png", &ela)?;
     } else {
         println!(
             "image_crunch CLI compiled and ready! Place a zombillie.png here to run ELA test."
