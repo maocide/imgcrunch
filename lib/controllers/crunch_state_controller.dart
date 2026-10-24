@@ -61,14 +61,12 @@ class CrunchStateController extends ChangeNotifier {
       const PipelineIdle<AsciiCrunchResult>();
   PipelineState<String> _stringsState = const PipelineIdle<String>();
   PipelineState<String> _lastVlmState = const PipelineIdle<String>();
-  bool _isResettingPipelines = false;
 
   ViewMode get activeMode => _activeMode;
   String? get currentPath => _currentPath;
   VlmController get vlmController => _vlmController;
 
   void _onVlmStateChanged() {
-    if (_isResettingPipelines) return;
     // Only notify parent when the pipeline lifecycle state changes,
     // avoiding high-frequency rebuilds during streaming token accumulation!
     if (_lastVlmState != _vlmController.state) {
@@ -154,15 +152,7 @@ class CrunchStateController extends ChangeNotifier {
     _elaState = const PipelineIdle<Uint8List>();
     _asciiState = const PipelineIdle<AsciiCrunchResult>();
     _stringsState = const PipelineIdle<String>();
-
-    _isResettingPipelines = true;
-    try {
-      _vlmController.onImageChanged(newPath);
-      _lastVlmState = _vlmController.state;
-    } finally {
-      _isResettingPipelines = false;
-    }
-
+    _vlmController.onImageChanged(newPath);
     notifyListeners();
     _triggerActivePipelineIfNeeded();
   }
@@ -173,6 +163,8 @@ class CrunchStateController extends ChangeNotifier {
 
     switch (_activeMode) {
       case ViewMode.normal:
+        print("NORMAL");
+        print(_currentPath);
         break;
       case ViewMode.ela:
         if (_elaState is PipelineIdle<Uint8List>) {

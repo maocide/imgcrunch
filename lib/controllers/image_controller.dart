@@ -124,6 +124,12 @@ class ImageController extends ChangeNotifier {
       final file = File(filePath);
       final parentDir = file.parent;
       _currentDirectory = parentDir.path;
+
+      // Optimistically display the target image immediately so Frame 1 renders without waiting for directory scan!
+      _playlist = [filePath];
+      _currentIndex = 0;
+      notifyListeners();
+
       watcherManager.startWatching(parentDir.path);
 
       final files = await _scanDirectory(parentDir.path);

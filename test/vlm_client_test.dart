@@ -294,5 +294,50 @@ void main() {
         await tempDir.delete(recursive: true);
       }
     });
+
+    test('extracts reasoning chunks from Ollama reasoning, DeepSeek reasoning_content, and think tags', () async {
+      final sseLines = [
+        'data: {"choices":[{"delta":{"reasoning":"Analyzing lighting "}}]}\n\n',
+        'data: {"choices":[{"delta":{"reasoning_content":"and marble texture."}}]}\n\n',
+        'data: {"choices":[{"delta":{"content":"<think>Internal anomaly detected</think>Final Report."}}]}\n\n',
+        'data: [DONE]\n\n',
+      ];
+
+      final mockClient = MockStreamHttpClient((request) async {
+        final controller = StreamController<List<int>>();
+        for (final line in sseLines) {
+          controller.add(utf8.encode(line));
+        }
+        controller.close();
+        return http.StreamedResponse(
+          controller.stream,
+          200,
+          headers: {'content-type': 'text/event-stream'},
+        );
+      });
+
+      final tempDir = await Directory.systemTemp.createTemp('vlm_reasoning_test_');
+      final testFile = File('${tempDir.path}/test.png');
+      await testFile.writeAsBytes([1, 2, 3]);
+
+      try {
+        final client = VlmClient(httpClient: mockClient);
+        const config = VlmConfig();
+
+        final chunks = await client.streamChunks(
+          imagePath: testFile.path,
+          prompt: 'Inspect',
+          config: config,
+        ).toList();
+
+        final reasoning = chunks.where((c) => c.isReasoning).map((c) => c.text).toList();
+        final text = chunks.where((c) => !c.isReasoning).map((c) => c.text).toList();
+
+        expect(reasoning, equals(['Analyzing lighting ', 'and marble texture.', 'Internal anomaly detected']));
+        expect(text, equals(['Final Report.']));
+      } finally {
+        await tempDir.delete(recursive: true);
+      }
+    });
   });
 }

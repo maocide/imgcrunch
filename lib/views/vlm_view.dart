@@ -10,6 +10,7 @@ import '../widgets/retro_button.dart';
 import '../widgets/retro_led.dart';
 import '../widgets/retro_panel.dart';
 import '../widgets/vlm/retro_markdown_view.dart';
+import '../widgets/vlm/retro_reasoning_collapsible.dart';
 import '../widgets/vlm/vlm_settings_dialog.dart';
 
 /// Dedicated split-deck view for Mode 5: VLM Neural Inspection.
@@ -37,7 +38,13 @@ class _VlmViewState extends State<VlmView> {
   late final TextEditingController _terminalTextCtrl;
   final ScrollController _terminalScrollCtrl = ScrollController();
   final FocusNode _promptFocusNode = FocusNode();
+
+  final ValueNotifier<String> _textNotifier = ValueNotifier<String>('');
+  final ValueNotifier<String> _reasoningNotifier = ValueNotifier<String>('');
+  final ValueNotifier<bool> _isReasoningExpanded = ValueNotifier<bool>(false);
+
   StreamSubscription<String>? _tokenStreamSub;
+  StreamSubscription<String>? _reasoningStreamSub;
   bool _showRawOutput = false;
 
   VlmController get _vlmCtrl => widget.crunchController.vlmController;
@@ -49,6 +56,10 @@ class _VlmViewState extends State<VlmView> {
       text: _vlmCtrl.config.effectivePrompt,
     );
     _terminalTextCtrl = TextEditingController(text: _vlmCtrl.accumulatedText);
+    _textNotifier.value = _vlmCtrl.accumulatedText;
+    _reasoningNotifier.value = _vlmCtrl.accumulatedReasoning;
+    _isReasoningExpanded.value = false; // Closed at start by default
+
     _promptFocusNode.addListener(_onFocusChanged);
     _promptFocusNode.onKeyEvent = (node, event) {
       if (event is KeyDownEvent) {
@@ -68,8 +79,10 @@ class _VlmViewState extends State<VlmView> {
       }
       return KeyEventResult.ignored;
     };
+
     _vlmCtrl.addListener(_onVlmStateChanged);
     _tokenStreamSub = _vlmCtrl.tokenStream.listen(_onTokenReceived);
+    _reasoningStreamSub = _vlmCtrl.reasoningStream.listen(_onReasoningReceived);
   }
 
   void _onFocusChanged() {
@@ -78,27 +91,36 @@ class _VlmViewState extends State<VlmView> {
 
   void _onTokenReceived(String token) {
     if (!mounted) return;
-    final current = _terminalTextCtrl.text;
-    _terminalTextCtrl.value = TextEditingValue(
-      text: current + token,
-      selection: TextSelection.collapsed(offset: current.length + token.length),
-    );
-    if (_terminalScrollCtrl.hasClients) {
-      _terminalScrollCtrl.animateTo(
-        _terminalScrollCtrl.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 30),
-        curve: Curves.easeOut,
-      );
-    }
-    // Update button states if needed
-    if (current.isEmpty && token.isNotEmpty) {
-      setState(() {});
-    }
+    _textNotifier.value = _textNotifier.value + token;
+    _terminalTextCtrl.text = _textNotifier.value;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_terminalScrollCtrl.hasClients) {
+        _terminalScrollCtrl.jumpTo(_terminalScrollCtrl.position.maxScrollExtent);
+      }
+    });
+  }
+
+  void _onReasoningReceived(String reasoning) {
+    if (!mounted) return;
+    _reasoningNotifier.value = _reasoningNotifier.value + reasoning;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_terminalScrollCtrl.hasClients) {
+        _terminalScrollCtrl.jumpTo(_terminalScrollCtrl.position.maxScrollExtent);
+      }
+    });
   }
 
   @override
   void dispose() {
     _tokenStreamSub?.cancel();
+    _reasoningStreamSub?.cancel();
+    _textNotifier.dispose();
+    _reasoningNotifier.dispose();
+    _isReasoningExpanded.dispose();
     _promptFocusNode.removeListener(_onFocusChanged);
     _vlmCtrl.removeListener(_onVlmStateChanged);
     _promptTextCtrl.dispose();
@@ -110,13 +132,21 @@ class _VlmViewState extends State<VlmView> {
 
   void _onVlmStateChanged() {
     if (!mounted) return;
-    if (_vlmCtrl.accumulatedText.isEmpty && _vlmCtrl.state is PipelineIdle) {
-      if (_terminalTextCtrl.text.isNotEmpty) {
-        _terminalTextCtrl.clear();
+    if (_vlmCtrl.accumulatedText.isEmpty &&
+        _vlmCtrl.accumulatedReasoning.isEmpty &&
+        _vlmCtrl.state is PipelineIdle) {
+      _textNotifier.value = '';
+      _reasoningNotifier.value = '';
+      _terminalTextCtrl.clear();
+    } else if (_vlmCtrl.state is PipelineReady) {
+      if (_textNotifier.value.isEmpty && _vlmCtrl.accumulatedText.isNotEmpty) {
+        _textNotifier.value = _vlmCtrl.accumulatedText;
+        _terminalTextCtrl.text = _vlmCtrl.accumulatedText;
       }
-    } else if (_vlmCtrl.state is PipelineReady &&
-        _terminalTextCtrl.text.isEmpty) {
-      _terminalTextCtrl.text = _vlmCtrl.accumulatedText;
+      if (_reasoningNotifier.value.isEmpty &&
+          _vlmCtrl.accumulatedReasoning.isNotEmpty) {
+        _reasoningNotifier.value = _vlmCtrl.accumulatedReasoning;
+      }
     }
     setState(() {});
   }
@@ -141,6 +171,9 @@ class _VlmViewState extends State<VlmView> {
     }
 
     _terminalTextCtrl.clear();
+    _textNotifier.value = '';
+    _reasoningNotifier.value = '';
+    _isReasoningExpanded.value = false;
 
     await _vlmCtrl.crunch(
       imagePath: widget.imagePath,
@@ -151,18 +184,23 @@ class _VlmViewState extends State<VlmView> {
   }
 
   Future<void> _copyCaption() async {
-    final text = _terminalTextCtrl.text.trim();
-    if (text.isEmpty) {
+    final text = _textNotifier.value.trim();
+    final reasoning = _reasoningNotifier.value.trim();
+    final payload = text.isNotEmpty
+        ? text
+        : (reasoning.isNotEmpty ? reasoning : '');
+
+    if (payload.isEmpty) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('No caption text to copy!')));
       return;
     }
 
-    await Clipboard.setData(ClipboardData(text: text));
+    await Clipboard.setData(ClipboardData(text: payload));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('VLM caption copied to clipboard!')),
+        const SnackBar(content: Text('VLM output copied to clipboard!')),
       );
     }
   }
@@ -310,14 +348,18 @@ class _VlmViewState extends State<VlmView> {
                 },
               ),
               const SizedBox(width: 6),
-              RetroButton(
-                label: 'COPY',
-                fontSize: 10,
-                onPressed:
-                    (_terminalTextCtrl.text.isNotEmpty ||
-                        vlm.accumulatedText.isNotEmpty)
-                    ? _copyCaption
-                    : null,
+              ValueListenableBuilder<String>(
+                valueListenable: _textNotifier,
+                builder: (context, text, _) {
+                  final hasContent = text.isNotEmpty ||
+                      _reasoningNotifier.value.isNotEmpty ||
+                      vlm.accumulatedText.isNotEmpty;
+                  return RetroButton(
+                    label: 'COPY',
+                    fontSize: 10,
+                    onPressed: hasContent ? _copyCaption : null,
+                  );
+                },
               ),
               const SizedBox(width: 6),
               RetroButton(
@@ -405,71 +447,119 @@ class _VlmViewState extends State<VlmView> {
       );
     }
 
-    if (_terminalTextCtrl.text.isEmpty &&
-        vlm.accumulatedText.isEmpty &&
-        state is PipelineIdle) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const RetroLed(
-              isActive: true,
-              activeColor: AppTheme.xCopyCyan,
-              size: 10,
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'NEURAL VISION READY',
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.4,
-                color: AppTheme.xCopyGreen,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'TARGET: ${vlm.config.endpoint}\nMODEL: ${vlm.config.model}',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 10.5,
-                color: AppTheme.xCopyGreen.withValues(alpha: 0.7),
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 14),
-            const Text(
-              'SELECT PRESET BELOW AND PRESS [CRUNCH] OR (CTRL+ENTER)',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 10,
-                color: AppTheme.xCopyAmber,
-                letterSpacing: 0.8,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        _textNotifier,
+        _reasoningNotifier,
+        _isReasoningExpanded,
+      ]),
+      builder: (context, _) {
+        final text = _textNotifier.value;
+        final reasoning = _reasoningNotifier.value;
 
-    return SingleChildScrollView(
-      controller: _terminalScrollCtrl,
-      child: _showRawOutput
-          ? SelectableText(
-              _terminalTextCtrl.text,
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 12,
-                color: AppTheme.xCopyGreen,
-                height: 1.4,
-                letterSpacing: 0.5,
-              ),
-              cursorColor: AppTheme.xCopyAmber,
-            )
-          : RetroMarkdownView(data: _terminalTextCtrl.text),
+        if (text.isEmpty && reasoning.isEmpty && state is PipelineIdle) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const RetroLed(
+                  isActive: true,
+                  activeColor: AppTheme.xCopyCyan,
+                  size: 10,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'NEURAL VISION READY',
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.4,
+                    color: AppTheme.xCopyGreen,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'TARGET: ${vlm.config.endpoint}\nMODEL: ${vlm.config.model}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 10.5,
+                    color: AppTheme.xCopyGreen.withValues(alpha: 0.7),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'SELECT PRESET BELOW AND PRESS [CRUNCH] OR (CTRL+ENTER)',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 10,
+                    color: AppTheme.xCopyAmber,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return SingleChildScrollView(
+          controller: _terminalScrollCtrl,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (reasoning.isNotEmpty)
+                RetroReasoningCollapsible(
+                  reasoning: reasoning,
+                  isExpanded: _isReasoningExpanded.value,
+                  isStreaming: vlm.isStreaming && text.isEmpty,
+                  onToggle: () {
+                    _isReasoningExpanded.value = !_isReasoningExpanded.value;
+                  },
+                ),
+              if (text.isNotEmpty)
+                _showRawOutput
+                    ? SelectableText(
+                        text,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          color: AppTheme.xCopyGreen,
+                          height: 1.4,
+                          letterSpacing: 0.5,
+                        ),
+                        cursorColor: AppTheme.xCopyAmber,
+                      )
+                    : RetroMarkdownView(data: text)
+              else if (reasoning.isNotEmpty && vlm.isStreaming)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      RetroLed(
+                        isActive: true,
+                        activeColor: AppTheme.xCopyAmber,
+                        size: 7,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'PROCESSING COGNITIVE TRACE...',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 11,
+                          color: AppTheme.xCopyAmber,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 

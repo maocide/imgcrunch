@@ -17,10 +17,22 @@ class VlmApiException implements Exception {
   String toString() => 'VlmApiException (HTTP $statusCode): $message';
 }
 
+/// Represents an incoming token chunk from a streaming VLM/LLM response.
+class VlmStreamChunk {
+  const VlmStreamChunk(this.text, {this.isReasoning = false});
+
+  final String text;
+  final bool isReasoning;
+
+  @override
+  String toString() => 'VlmStreamChunk(text: $text, isReasoning: $isReasoning)';
+}
+
 /// Vision Language Model client for OpenAI-compatible completions endpoints
 /// (Ollama, vLLM, OpenRouter, LM Studio, OpenAI).
 ///
-/// Supports real-time Server-Sent Events (SSE) token streaming and instant abort/cancellation.
+/// Supports real-time Server-Sent Events (SSE) token streaming, reasoning tokens,
+/// and instant abort/cancellation.
 class VlmClient {
   VlmClient({http.Client? httpClient}) : _customHttpClient = httpClient;
 
@@ -58,12 +70,30 @@ class VlmClient {
   /// Cancels any ongoing streaming request immediately.
   void abort() {
     _isAborted = true;
-    _activeClient?.close();
+    try {
+      _activeClient?.close();
+    } catch (_) {}
     _activeClient = null;
   }
 
-  /// Streams token-by-token response chunks for a given [imagePath] and [prompt].
-  Stream<String> streamCaption({
+  /// Extracts reasoning text from [reasoningContent] which can be:
+  /// - a plain String (DeepSeek, vLLM, OpenAI, Ollama)
+  /// - a Map with a "text" key (Gemini OpenAI shim: `{"text": "summary"}`)
+  /// - null or missing -> empty string
+  static String _extractReasoning(dynamic reasoningContent) {
+    if (reasoningContent is String) {
+      return reasoningContent;
+    }
+    if (reasoningContent is Map) {
+      final text = reasoningContent['text'];
+      return text is String ? text : '';
+    }
+    return '';
+  }
+
+  /// Streams typed [VlmStreamChunk] events (both standard content and cognitive reasoning)
+  /// for a given [imagePath] and [prompt].
+  Stream<VlmStreamChunk> streamChunks({
     required String imagePath,
     required String prompt,
     required VlmConfig config,
@@ -93,10 +123,7 @@ class VlmClient {
 
       final messages = <Map<String, dynamic>>[];
       if (prompt.trim().isNotEmpty) {
-        messages.add({
-          'role': 'system',
-          'content': prompt.trim(),
-        });
+        messages.add({'role': 'system', 'content': prompt.trim()});
       }
 
       final userContent = <Map<String, dynamic>>[];
@@ -112,7 +139,10 @@ class VlmClient {
         if (await file.exists()) {
           final segments = file.uri.pathSegments;
           if (segments.isNotEmpty) {
-            filename = segments.lastWhere((s) => s.isNotEmpty, orElse: () => 'unknown');
+            filename = segments.lastWhere(
+              (s) => s.isNotEmpty,
+              orElse: () => 'unknown',
+            );
           }
           isClipboard = filename?.startsWith('imgcrunch_clipboard_') ?? false;
           final stat = await file.stat();
@@ -133,14 +163,20 @@ class VlmClient {
       groundingBuffer.writeln('- Current Analysis Timestamp: $nowUtcStr');
       if (filename != null) {
         if (isClipboard) {
-          groundingBuffer.writeln('- Source: Pasted image from system clipboard');
+          groundingBuffer.writeln(
+            '- Source: Pasted image from system clipboard',
+          );
           if (fileSize != null) {
-            groundingBuffer.writeln('- Buffer Size: ${_formatBytes(fileSize)} ($fileSize bytes)');
+            groundingBuffer.writeln(
+              '- Buffer Size: ${_formatBytes(fileSize)} ($fileSize bytes)',
+            );
           }
         } else {
           groundingBuffer.writeln('- Target Filename: $filename');
           if (fileSize != null) {
-            groundingBuffer.writeln('- File Size: ${_formatBytes(fileSize)} ($fileSize bytes)');
+            groundingBuffer.writeln(
+              '- File Size: ${_formatBytes(fileSize)} ($fileSize bytes)',
+            );
           }
           if (lastModified != null) {
             final modUtc = lastModified.toUtc();
@@ -173,10 +209,7 @@ class VlmClient {
           '\nAnalyze and correlate Image 1 against Image 2 (ELA) and the binary strings according to your instructions.',
         );
 
-        userContent.add({
-          'type': 'text',
-          'text': buffer.toString(),
-        });
+        userContent.add({'type': 'text', 'text': buffer.toString()});
         userContent.add({
           'type': 'image_url',
           'image_url': {'url': dataUri},
@@ -197,20 +230,14 @@ class VlmClient {
         buffer.writeln(
           '\nAnalyze and inspect the provided image according to your instructions.',
         );
-        userContent.add({
-          'type': 'text',
-          'text': buffer.toString(),
-        });
+        userContent.add({'type': 'text', 'text': buffer.toString()});
         userContent.add({
           'type': 'image_url',
           'image_url': {'url': dataUri},
         });
       }
 
-      messages.add({
-        'role': 'user',
-        'content': userContent,
-      });
+      messages.add({'role': 'user', 'content': userContent});
 
       final payload = {
         'model': config.model.trim(),
@@ -252,10 +279,14 @@ class VlmClient {
           .transform(utf8.decoder)
           .transform(const LineSplitter());
 
+      bool isThinkingTag = false;
+
       await for (final line in lineStream) {
         if (_isAborted) break;
         final trimmedLine = line.trim();
         if (trimmedLine.isEmpty) continue;
+        if (trimmedLine.startsWith(':'))
+          continue; // Ignore SSE keep-alive comments
 
         if (!trimmedLine.startsWith('data:')) continue;
 
@@ -269,33 +300,129 @@ class VlmClient {
             if (choices is List && choices.isNotEmpty) {
               final firstChoice = choices[0];
               if (firstChoice is Map) {
-                // OpenAI streaming format
                 final delta = firstChoice['delta'];
+                final messageObj = firstChoice['message'] ?? {};
+
+                // Multi-provider reasoning extraction (Ollama, DeepSeek, OpenAI, vLLM)
+                String reasoningChunk = '';
+                if (delta is Map) {
+                  reasoningChunk = _extractReasoning(
+                    delta['reasoning_content'],
+                  );
+                  if (reasoningChunk.isEmpty && delta['model_extra'] != null) {
+                    reasoningChunk =
+                        delta['model_extra']['reasoning']?.toString() ?? '';
+                  }
+                  if (reasoningChunk.isEmpty && delta['reasoning'] != null) {
+                    reasoningChunk = delta['reasoning']
+                        .toString(); // Ollama native
+                  }
+                }
+
+                if (reasoningChunk.isNotEmpty) {
+                  yield VlmStreamChunk(reasoningChunk, isReasoning: true);
+                }
+
+                // Check messageObj on finish (some providers emit reasoning only on final chunk)
+                if (firstChoice['finish_reason'] != null &&
+                    reasoningChunk.isEmpty) {
+                  final endReasoning = _extractReasoning(
+                    messageObj['reasoning_content'],
+                  );
+                  if (endReasoning.isNotEmpty) {
+                    yield VlmStreamChunk(endReasoning, isReasoning: true);
+                  }
+                }
+
+                // Content & inline thinking tag parsing (<think> / <thought>)
                 if (delta is Map && delta['content'] != null) {
-                  final content = delta['content'].toString();
-                  if (content.isNotEmpty) {
-                    yield content;
+                  String textChunk = delta['content'].toString();
+                  bool processedTag = false;
+
+                  if (textChunk.contains('<thought>') ||
+                      textChunk.contains('<think>')) {
+                    isThinkingTag = true;
+                    textChunk = textChunk
+                        .replaceAll('<thought>', '')
+                        .replaceAll('<think>', '');
+                  }
+
+                  if (textChunk.contains('</thought>') ||
+                      textChunk.contains('</think>')) {
+                    isThinkingTag = false;
+                    processedTag = true;
+
+                    final parts = textChunk.contains('</thought>')
+                        ? textChunk.split('</thought>')
+                        : textChunk.split('</think>');
+
+                    if (parts[0].isNotEmpty) {
+                      yield VlmStreamChunk(parts[0], isReasoning: true);
+                    }
+                    if (parts.length > 1 && parts[1].isNotEmpty) {
+                      yield VlmStreamChunk(parts[1], isReasoning: false);
+                    }
+                  }
+
+                  if (!processedTag && textChunk.isNotEmpty) {
+                    if (isThinkingTag) {
+                      yield VlmStreamChunk(textChunk, isReasoning: true);
+                    } else {
+                      yield VlmStreamChunk(textChunk, isReasoning: false);
+                    }
                   }
                 } else if (firstChoice['text'] != null) {
-                  // Legacy completion format
-                  final content = firstChoice['text'].toString();
-                  if (content.isNotEmpty) {
-                    yield content;
+                  final text = firstChoice['text'].toString();
+                  if (text.isNotEmpty) {
+                    yield VlmStreamChunk(text, isReasoning: false);
                   }
                 }
               }
             }
           }
         } catch (e) {
-          debugPrint('VlmClient: Error decoding SSE line: $e (line: $trimmedLine)');
+          debugPrint(
+            'VlmClient: Error decoding SSE line: $e (line: $trimmedLine)',
+          );
         }
       }
+    } catch (e) {
+      if (_isAborted) return;
+      if (e is VlmApiException) rethrow;
+      throw VlmApiException(0, 'VLM stream error: $e');
     } finally {
       if (identical(_activeClient, client)) {
         _activeClient = null;
       }
       if (_customHttpClient == null) {
         client.close();
+      }
+    }
+  }
+
+  /// Streams token-by-token response chunks for a given [imagePath] and [prompt].
+  /// Optionally passes [onReasoning] callback for cognitive reasoning tokens.
+  Stream<String> streamCaption({
+    required String imagePath,
+    required String prompt,
+    required VlmConfig config,
+    Uint8List? elaBytes,
+    int? elaScale,
+    String? extractedStrings,
+    void Function(String reasoning)? onReasoning,
+  }) async* {
+    await for (final chunk in streamChunks(
+      imagePath: imagePath,
+      prompt: prompt,
+      config: config,
+      elaBytes: elaBytes,
+      elaScale: elaScale,
+      extractedStrings: extractedStrings,
+    )) {
+      if (chunk.isReasoning) {
+        onReasoning?.call(chunk.text);
+      } else {
+        yield chunk.text;
       }
     }
   }

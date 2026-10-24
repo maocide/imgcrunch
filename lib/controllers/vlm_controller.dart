@@ -34,6 +34,11 @@ class VlmController extends ChangeNotifier {
   String _accumulatedText = '';
   String get accumulatedText => _accumulatedText;
 
+  String _accumulatedReasoning = '';
+  String get accumulatedReasoning => _accumulatedReasoning;
+
+  bool get hasReasoning => _accumulatedReasoning.isNotEmpty;
+
   int _tokenCount = 0;
   int get tokenCount => _tokenCount;
 
@@ -52,6 +57,12 @@ class VlmController extends ChangeNotifier {
 
   /// Broadcast stream emitting individual token chunks as they arrive from the VLM.
   Stream<String> get tokenStream => _tokenStreamCtrl.stream;
+
+  final StreamController<String> _reasoningStreamCtrl =
+      StreamController<String>.broadcast();
+
+  /// Broadcast stream emitting cognitive reasoning chunks (<think>, reasoning_content, delta['reasoning']).
+  Stream<String> get reasoningStream => _reasoningStreamCtrl.stream;
 
   /// Loads configuration from [IConfigStorage].
   Future<void> loadConfig() async {
@@ -157,6 +168,7 @@ class VlmController extends ChangeNotifier {
     }
 
     _accumulatedText = '';
+    _accumulatedReasoning = '';
     _tokenCount = 0;
     _isStreaming = true;
     _stopwatch = Stopwatch()..start();
@@ -204,7 +216,7 @@ class VlmController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final stream = _vlmClient.streamCaption(
+      final stream = _vlmClient.streamChunks(
         imagePath: imagePath,
         prompt: prompt,
         config: _config,
@@ -213,11 +225,16 @@ class VlmController extends ChangeNotifier {
         extractedStrings: extractedStrings,
       );
 
-      await for (final token in stream) {
-        _accumulatedText += token;
-        _tokenCount++;
+      await for (final chunk in stream) {
+        if (chunk.isReasoning) {
+          _accumulatedReasoning += chunk.text;
+          _reasoningStreamCtrl.add(chunk.text);
+        } else {
+          _accumulatedText += chunk.text;
+          _tokenCount++;
+          _tokenStreamCtrl.add(chunk.text);
+        }
         _elapsedTime = _stopwatch?.elapsed ?? Duration.zero;
-        _tokenStreamCtrl.add(token);
       }
 
       _stopwatch?.stop();
@@ -226,6 +243,7 @@ class VlmController extends ChangeNotifier {
       _state = PipelineReady<String>(_accumulatedText);
       notifyListeners();
     } catch (e) {
+      if (!_isStreaming) return;
       _stopwatch?.stop();
       _elapsedTime = _stopwatch?.elapsed ?? Duration.zero;
       _isStreaming = false;
@@ -236,15 +254,15 @@ class VlmController extends ChangeNotifier {
 
   /// Aborts any in-flight inference stream immediately.
   void abort() {
+    _isStreaming = false;
     _vlmClient.abort();
     if (_stopwatch?.isRunning == true) {
       _stopwatch?.stop();
       _elapsedTime = _stopwatch?.elapsed ?? Duration.zero;
     }
-    _isStreaming = false;
 
     if (_state is PipelineProcessing) {
-      if (_accumulatedText.isNotEmpty) {
+      if (_accumulatedText.isNotEmpty || _accumulatedReasoning.isNotEmpty) {
         _state = PipelineReady<String>(_accumulatedText);
       } else {
         _state = const PipelineIdle<String>();
@@ -269,6 +287,7 @@ class VlmController extends ChangeNotifier {
     _isStreaming = false;
     _state = const PipelineIdle<String>();
     _accumulatedText = '';
+    _accumulatedReasoning = '';
     _tokenCount = 0;
     _elapsedTime = Duration.zero;
     notifyListeners();
@@ -278,6 +297,7 @@ class VlmController extends ChangeNotifier {
   void dispose() {
     abort();
     _tokenStreamCtrl.close();
+    _reasoningStreamCtrl.close();
     super.dispose();
   }
 }

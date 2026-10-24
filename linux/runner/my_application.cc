@@ -19,7 +19,8 @@ static void first_frame_cb(MyApplication *self, FlView *view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
 }
 
-// Method channel handler for window operations (e.g. setting title across XFCE/X11/Wayland).
+// Method channel handler for window operations (e.g. setting title across
+// XFCE/X11/Wayland).
 static void window_channel_method_call_cb(FlMethodChannel *channel,
                                           FlMethodCall *method_call,
                                           gpointer user_data) {
@@ -72,7 +73,8 @@ static void my_application_activate(GApplication *application) {
     gtk_header_bar_set_title(header_bar, "imgcrunch");
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
-    g_object_bind_property(window, "title", header_bar, "title", G_BINDING_DEFAULT);
+    g_object_bind_property(window, "title", header_bar, "title",
+                           G_BINDING_DEFAULT);
   } else {
     gtk_window_set_title(window, "imgcrunch");
   }
@@ -93,15 +95,17 @@ static void my_application_activate(GApplication *application) {
   gtk_widget_show(GTK_WIDGET(view));
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
 
-  // Show the window when Flutter renders.
-  // Requires the view to be realized so we can start rendering.
+  // Show window immediately for instantaneous launch feedback.
+  gtk_widget_show(GTK_WIDGET(window));
+
   g_signal_connect_swapped(view, "first-frame", G_CALLBACK(first_frame_cb),
                            self);
   gtk_widget_realize(GTK_WIDGET(view));
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
 
-  g_autoptr(FlStandardMethodCodec) window_codec = fl_standard_method_codec_new();
+  g_autoptr(FlStandardMethodCodec) window_codec =
+      fl_standard_method_codec_new();
   g_autoptr(FlMethodChannel) window_channel = fl_method_channel_new(
       fl_engine_get_binary_messenger(fl_view_get_engine(view)),
       "imgcrunch/window", FL_METHOD_CODEC(window_codec));

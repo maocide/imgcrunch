@@ -24,7 +24,7 @@
 
 <div align="center">
   <!-- HERO DEMO // PLACEHOLDER FOR SMILEDOG 5-MODE RECORDING -->
-  <img src="assets/hero_demo.webp" width="100%" alt="IMGCRUNCH In Action // 5-Mode Forensic Traversal">
+  <img src="assets/hero_demo.webp" width="100%" alt="IMGCRUNCH In Action, inspect your pets with 5-Mode Forensic Traversal!">
 </div>
 
 <br>
@@ -35,46 +35,43 @@
 > ### ⚠️ PHOTOSENSITIVITY WARNING // SEIZURES™ (ORIGINAL 1990s EDITION)
 > The violent screen strobing and border flashing during pipeline execution is the **AUTHENTIC 1990s DEMOSCENE CRUNCHER EFFECT™**.
 >
-> It indicates that the pure Rust native engine is actively decompressing byte streams, computing differential Error Level Analysis matrices, and rasterizing high-density glyphs directly into raw pixel buffers. The presence of violent flashing means the software is **WORKING AS INTENDED**.
+> It indicates that the pure Rust native engine is actively decompressing byte streams, computing differential Error Level Analysis matrices, and rasterizing high-density glyphs directly into raw pixel buffers. The presence of violent flashing means the software is **WORKING AS INTENDED**. That is just Rust getting crunched in the background.
 >
-> Anyone forking this repository to replace the cruncher flash with a sanitized modern circular progress indicator will be summarily and permanently blocked.
+> Anyone forking this repository to replace the cruncher flash with a sanitized modern circular progress indicator will be summarily and permanently blocked with extreme prejudice.
 
 ---
 
-## 💾 The Machine & Philosophy
+## 💾 The Man & The Machine
 
-Most modern image viewers are bloated Electron web wrappers that consume half a gigabyte of RAM just to display a JPEG, or cloud-tethered spyware vacuuming your metadata into remote ad-tech telemetry pipelines.
+While much of modern software has devolved into bloated Electron web wrappers consuming half a gigabyte of RAM just to display a JPEG, clean tools like `qimgv` still exist (and served as a major inspiration here). But every image viewer dictates user workflow.
 
-**IMGCRUNCH is the antithesis.**
+**IMGCRUNCH is a combo to shmix you up.**
 
-Forged on Arch Linux, IMGCRUNCH was built to answer a simple question: *can we marry unapologetic retro hardware UI design with blistering native performance?* 
-
-The native backend is **handwritten in pure Rust** — forged as a real-world crucible to master the language by directly manipulating raw pixel buffers, calculating mathematical matrix deltas, and hacking low-level perceptual luminance rather than reading abstract tutorials. The desktop shell is built in **Flutter Desktop**, themed to match the brutalist 1992 Commodore Amiga *X-Copy Pro* hardware aesthetic.
+Forged on Arch Linux, IMGCRUNCH was built to pair a raw, retro UI with blistering native performance. Low-level systems languages like Rust shine at high-throughput pixel crunching, but because of how Rust is structured, complex nested UI trees are notoriously painful to build. Bringing these two worlds together is the core philosophy of IMGCRUNCH: embedding handwritten Rust inside Flutter Desktop yields the best of both worlds — a responsive, hardware-accelerated frontend with Rust doing all the heavy computational lifting behind the scenes (file scanning, image processing, ...).
 
 **Actively Dogfooded During Degen Hours:**  
-This tool is daily-driven on actual workloads. Features get implemented because the maintainer genuinely needed them to tear apart cursed containers at 3 AM — not because an astroturfed review brigade or a phantom issue farm demanded it. As such, expect sharp edges, raw silicon, and active evolution as real bugs get crushed in daily combat.
+This tool is daily-driven on actual workloads. Features get implemented because the maintainer genuinely needed them to navigate folders of cursed imagery at 3 AM... Another package broke, an image viewer was needed, and things escalated. As such, expect sharp edges, raw corners, active evolution, and mechanics that shift daily based on real-world combat.
 
-* **Zero Telemetry & Zero Cloud Crutches:** The engine runs entirely on local silicon. It does not phone home, ping remote analytics endpoints, or upload your media to centralized silos.
-* **Zero Daemons & Zero Privileged Helpers:** IMGCRUNCH operates strictly in unprivileged user space. No root/sudo escalations, no Polkit prompts, no background daemons, no unauthenticated loopback sockets, and no shady dynamic payloads refactored to dodge repository filters. It does what it says on the tin: takes an image, processes bytes in local memory, renders to your hardware display, and exits cleanly.
-* **No Performative Roadmaps:** We build what we need, when we need it.
+* **Zero Telemetry:** The engine runs entirely on local silicon. It does not phone home, ping remote analytics endpoints, or upload your media to centralized silos.
+* **Zero Permissions:** IMGCRUNCH operates strictly in unprivileged user space. No root/sudo escalations, no background services. It just opens images, crunches Rust, and blinds you with demoscene raster bars in the process — exactly as intended.
 
 ---
 
-## ⚡ The Five Forensic Strata (Quake Weapon-Switching)
+## ⚡ Five Forensic Strata (Quake Weapon-Switching)
 
-Mode switching isn't buried in menus or dropdowns. It operates with the twitch-reflex immediacy of **Quake weapon switching**: numerical triggers (`1` through `5`) instantly swap the active forensic lens without lifting your hand off the keyboard or fumbling with a mouse:
+Mode switching isn't buried in menus or dropdowns. It operates with the twitch-reflex immediacy of **Quake weapon switching**: numerical triggers (`1` through `5`) instantly swap the active forensic weapons without lifting your hand off the keyboard or fumbling with a mouse:
 
 ```text
  [1] RAW VIEWPORT    ➔ Hardware-accelerated subpixel pan/zoom matrix
  [2] ELA FORENSIC    ➔ Amplified differential Error Level Analysis (Rust)
- [3] CRT ASCII ART   ➔ Perceptual luminance rasterizer with glowing phosphor glyphs
- [4] STRINGS DUMP    ➔ Contiguous printable ASCII byte sequence extraction
+ [3] CRT ASCII ART   ➔ Perceptual luminance rasterizer with glowing phosphor glyphs (Rust)
+ [4] STRINGS DUMP    ➔ Contiguous printable ASCII byte sequence extraction (Rust)
  [5] NEURAL VLM      ➔ Dual-payload multimodal vision intelligence dossier
 ```
 
 ### `[1]` RAW VIEWPORT // The Specimen Deck
-* **Subpixel Pan & Zoom:** Custom coordinate transform matrix supporting seamless freeform zooming (up to 40x magnification), edge clamping, and one-key `100%` actual-size focus (`0`).
-* **Format Agnostic:** Ingests PNG, JPEG (JPG), GIF (with live animated frame playback), WebP, BMP, and ICO.
+* **Subpixel Pan & Zoom:** Custom coordinate transform matrix supporting seamless freeform zooming (NEAREST NEIGHBOUR when scaling up, LINEAR when scaling down), infinite zoom out, border clamping, and one-key `100%` actual-size focus (`0`).
+* **Format Agnostic:** Ingests PNG, JPEG (JPG), GIF (with live animated frame playback), WebP, BMP, and ICO (adding more friends along the way).
 * **Instant Ingestion:** Drag-and-drop any file directly into the cathode well, pass it as a CLI argument, or paste image buffers straight from the system clipboard (`Ctrl+V`).
 
 ### `[2]` ELA // Error Level Analysis
@@ -99,16 +96,16 @@ Mode switching isn't buried in menus or dropdowns. It operates with the twitch-r
 
 ---
 
-## 🔬 The Forensic Pixel Loupe (`L`)
+## 🔬 The Surgical Pixel Peeker (`P`)
 
-Press `L` to deploy the floating **9x Nearest-Neighbor Pixel Loupe**:
+Press `P` to deploy the floating **9x Nearest-Neighbor Pixel Peeker Loupe**:
 * **Subpixel Reticle:** Centers a calibrated high-precision crosshair over any pixel coordinate.
 * **Hardware Readout:** Displays exact `(X, Y)` spatial coordinates, 24-bit hexadecimal color code (`#RRGGBB`), and raw 8-bit `RGB(r, g, b)` channel values in real time.
 * **Subpixel Grid Canvas:** Renders a magnified pixel grid with hairline wireframe borders for inspecting compression edge discontinuities and steganographic color shifts.
 
 ---
 
-## ⌨️ Tactical Controls & Protocols
+## ⌨️ Mapped Controls
 
 | Key Trigger | Action & Operation |
 | :--- | :--- |
@@ -139,7 +136,7 @@ Press `L` to deploy the floating **9x Nearest-Neighbor Pixel Loupe**:
 
 ## 💻 Headless Terminal Engine (CLI)
 
-IMGCRUNCH is a dual-headed beast. In addition to the hardware GUI, it functions as a headless command-line utility for shell scripting, automated ELA generation, and terminal ASCII art piping:
+IMGCRUNCH is a dual-headed dog. In addition to the hardware GUI, it functions as a headless command-line utility for shell scripting, automated ELA generation, and terminal ASCII art piping:
 
 ```bash
 # Launch interactive GUI directly into a specific mode

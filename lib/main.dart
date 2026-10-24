@@ -27,24 +27,17 @@ Future<void> main(List<String> args) async {
   // Interactive GUI mode
   final controller = ImageController();
   if (cli.inputPath != null) {
-    await controller.loadPath(cli.inputPath!);
+    controller.loadPath(cli.inputPath!);
   }
 
-  runApp(ImgCrunchApp(
-    controller: controller,
-    initialMode: cli.initialGuiMode,
-  ));
+  runApp(ImgCrunchApp(controller: controller, initialMode: cli.initialGuiMode));
 }
 
 class ImgCrunchApp extends StatelessWidget {
   final ImageController controller;
   final ViewMode? initialMode;
 
-  const ImgCrunchApp({
-    super.key,
-    required this.controller,
-    this.initialMode,
-  });
+  const ImgCrunchApp({super.key, required this.controller, this.initialMode});
 
   @override
   Widget build(BuildContext context) {
@@ -52,10 +45,7 @@ class ImgCrunchApp extends StatelessWidget {
       title: 'imgcrunch',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.buildTheme(),
-      home: ViewerView(
-        controller: controller,
-        initialMode: initialMode,
-      ),
+      home: ViewerView(controller: controller, initialMode: initialMode),
     );
   }
 }
