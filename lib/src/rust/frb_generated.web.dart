@@ -8,6 +8,7 @@
 
 import 'api/ascii.dart';
 import 'api/ela.dart';
+import 'api/image_resize.dart';
 import 'api/playlist.dart';
 import 'api/strings.dart';
 import 'dart:async';
@@ -44,6 +45,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  int dco_decode_u_32(dynamic raw);
+
+  @protected
   int dco_decode_u_8(dynamic raw);
 
   @protected
@@ -68,6 +72,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   (Uint8List, String) sse_decode_record_list_prim_u_8_strict_string(
     SseDeserializer deserializer,
   );
+
+  @protected
+  int sse_decode_u_32(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_8(SseDeserializer deserializer);
@@ -104,6 +111,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     (Uint8List, String) self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_u_32(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_8(int self, SseSerializer serializer);

@@ -65,6 +65,16 @@ void main() {
         await tempDir.delete(recursive: true);
       }
     });
+
+    test('toOptimizedDataUriFromBytes formats data URI and falls back gracefully', () async {
+      final sampleBytes = Uint8List.fromList([1, 2, 3, 4]);
+      final uri = await VlmVisionHelper.toOptimizedDataUriFromBytes(
+        sampleBytes,
+        mimeType: 'image/jpeg',
+      );
+      final expectedBase64 = base64Encode(sampleBytes);
+      expect(uri, equals('data:image/jpeg;base64,$expectedBase64'));
+    });
   });
 
   group('VlmClient', () {

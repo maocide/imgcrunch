@@ -215,10 +215,11 @@ class VlmClient {
           'image_url': {'url': dataUri},
         });
         if (elaBytes != null) {
-          final elaDataUri = VlmVisionHelper.toDataUriFromBytes(
-            elaBytes,
-            mimeType: 'image/png',
-          );
+          final elaDataUri =
+              await VlmVisionHelper.toOptimizedDataUriFromBytes(
+                elaBytes,
+                mimeType: 'image/png',
+              );
           userContent.add({
             'type': 'image_url',
             'image_url': {'url': elaDataUri},

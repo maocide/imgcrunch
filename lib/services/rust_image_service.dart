@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import '../src/rust/api/ascii.dart' as rust_ascii;
 import '../src/rust/api/ela.dart' as rust_ela;
+import '../src/rust/api/image_resize.dart' as rust_image_resize;
 import '../src/rust/api/playlist.dart' as rust_playlist;
 import '../src/rust/api/strings.dart' as rust_strings;
 
@@ -134,4 +135,51 @@ class RustImageService {
       direction: direction,
     );
   }
+
+  /// Downscales an image preserving aspect ratio using native Rust thumbnail.
+  /// Encoded to PNG bytes.
+  Future<Uint8List> thumbnailImageFromBytes(
+    Uint8List rawBytes, {
+    required int maxWidth,
+    required int maxHeight,
+  }) async {
+    return await rust_image_resize.imageThumbnail(
+      rawBytes: rawBytes,
+      width: maxWidth,
+      height: maxHeight,
+    );
+  }
+
+  /// Convenience method: Reads file at [filePath] and creates a downscaled PNG thumbnail.
+  Future<Uint8List> thumbnailImageFromFile(
+    String filePath, {
+    required int maxWidth,
+    required int maxHeight,
+  }) async {
+    final file = File(filePath);
+    if (!await file.exists()) {
+      throw FileSystemException('Image file not found', filePath);
+    }
+    final bytes = await file.readAsBytes();
+    return await thumbnailImageFromBytes(
+      bytes,
+      maxWidth: maxWidth,
+      maxHeight: maxHeight,
+    );
+  }
+
+  /// Resizes an image to exact [width] and [height] using native Rust Lanczos3 filter.
+  /// Encoded to PNG bytes.
+  Future<Uint8List> resizeImageFromBytes(
+    Uint8List rawBytes, {
+    required int width,
+    required int height,
+  }) async {
+    return await rust_image_resize.imageResize(
+      rawBytes: rawBytes,
+      width: width,
+      height: height,
+    );
+  }
 }
+
