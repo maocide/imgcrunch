@@ -3,6 +3,7 @@ import '../theme/app_theme.dart';
 import '../widgets/retro_button.dart';
 import '../widgets/retro_led.dart';
 import '../widgets/retro_panel.dart';
+import '../widgets/retro_resize_dialog.dart';
 
 /// Helper class encapsulating styled modal dialogs for IMGCRUNCH.
 class RetroDialogHelper {
@@ -70,7 +71,9 @@ class RetroDialogHelper {
                         TableRow(
                           children: [
                             _HelpKey('1 / 2 / 3 / 4 / 5'),
-                            _HelpDesc('Normal / ELA / ASCII / Strings / VLM Mode'),
+                            _HelpDesc(
+                              'Normal / ELA / ASCII / Strings / VLM Mode',
+                            ),
                           ],
                         ),
                         TableRow(
@@ -87,7 +90,13 @@ class RetroDialogHelper {
                         ),
                         TableRow(
                           children: [
-                            _HelpKey('R / 0 (ZERO)'),
+                            _HelpKey('R'),
+                            _HelpDesc('Resize Image (Lanczos3 Dialog)'),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
+                            _HelpKey('0 (ZERO)'),
                             _HelpDesc(
                               'Toggle Fit to window / 100% Actual Scale',
                             ),
@@ -254,6 +263,23 @@ class RetroDialogHelper {
           ),
         ],
       ),
+    );
+  }
+
+  /// Shows the interactive retro resize dialog.
+  static Future<void> showResizeDialog(
+    BuildContext context, {
+    required String imagePath,
+    required Size naturalSize,
+    required ValueChanged<String> onSaved,
+    ValueChanged<bool>? onProcessingChanged,
+  }) {
+    return RetroResizeDialog.show(
+      context,
+      imagePath: imagePath,
+      naturalSize: naturalSize,
+      onSaved: onSaved,
+      onProcessingChanged: onProcessingChanged,
     );
   }
 }

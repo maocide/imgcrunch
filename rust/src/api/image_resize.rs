@@ -8,7 +8,7 @@ use std::io::Cursor;
 pub fn image_resize(raw_bytes: Vec<u8>, width: u32, height: u32) -> Result<Vec<u8>, String> {
     let mut png_cursor = Cursor::new(Vec::new()); // cursor to write into mem as stream
     let encoder =
-        PngEncoder::new_with_quality(&mut png_cursor, CompressionType::Best, FilterType::Adaptive); // encoder for png
+        PngEncoder::new_with_quality(&mut png_cursor, CompressionType::Default, FilterType::Sub); // balanced fast encoder
 
     // DynamicImage
     let orig_pixels = image::load_from_memory(&raw_bytes).map_err(|e| e.to_string())?; // convert ImageError to String and pop
@@ -32,7 +32,7 @@ pub fn image_resize(raw_bytes: Vec<u8>, width: u32, height: u32) -> Result<Vec<u
 pub fn image_thumbnail(raw_bytes: Vec<u8>, width: u32, height: u32) -> Result<Vec<u8>, String> {
     let mut png_cursor = Cursor::new(Vec::new()); // cursor to write into mem as stream
     let encoder =
-        PngEncoder::new_with_quality(&mut png_cursor, CompressionType::Best, FilterType::Adaptive); // encoder for png
+        PngEncoder::new_with_quality(&mut png_cursor, CompressionType::Fast, FilterType::NoFilter); // fast encoder for png
 
     // DynamicImage
     let orig_pixels = image::load_from_memory(&raw_bytes).map_err(|e| e.to_string())?; // convert ImageError to String and pop

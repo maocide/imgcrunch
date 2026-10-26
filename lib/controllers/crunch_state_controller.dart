@@ -163,8 +163,8 @@ class CrunchStateController extends ChangeNotifier {
 
     switch (_activeMode) {
       case ViewMode.normal:
-        print("NORMAL");
-        print(_currentPath);
+        //print("NORMAL");
+        //print(_currentPath);
         break;
       case ViewMode.ela:
         if (_elaState is PipelineIdle<Uint8List>) {

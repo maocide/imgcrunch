@@ -108,6 +108,43 @@ void main() {
       expect(cliShort.isHeadless, isTrue);
       expect(cliShort.action, equals(CliAction.version));
     });
+    test('--resize action parses width, height, percent, and output', () {
+      final cli = CliArgs.parse([
+        '--resize',
+        'specimen.jpg',
+        '-w',
+        '1920',
+        '-H',
+        '1080',
+        '-p',
+        '50',
+        '-o',
+        'resized.png',
+      ]);
+      expect(cli.isHeadless, isTrue);
+      expect(cli.action, equals(CliAction.resize));
+      expect(cli.inputPath, equals('specimen.jpg'));
+      expect(cli.resizeWidth, equals(1920));
+      expect(cli.resizeHeight, equals(1080));
+      expect(cli.resizePercent, equals(50.0));
+      expect(cli.outputPath, equals('resized.png'));
+    });
+
+    test('-r short flag with inline parameters', () {
+      final cli = CliArgs.parse([
+        '-r',
+        'specimen.png',
+        '--width=1280',
+        '--height=720',
+        '--percent=75',
+      ]);
+      expect(cli.isHeadless, isTrue);
+      expect(cli.action, equals(CliAction.resize));
+      expect(cli.inputPath, equals('specimen.png'));
+      expect(cli.resizeWidth, equals(1280));
+      expect(cli.resizeHeight, equals(720));
+      expect(cli.resizePercent, equals(75.0));
+    });
   });
 
   group('CliArgs.computeDefaultElaPath', () {
@@ -126,6 +163,15 @@ void main() {
       expect(
         CliArgs.computeDefaultElaPath('rawimage'),
         equals('rawimage_ela.png'),
+      );
+    });
+  });
+
+  group('CliArgs.computeDefaultResizePath', () {
+    test('computes default _resized.png path', () {
+      expect(
+        CliArgs.computeDefaultResizePath('sample.jpg'),
+        equals('sample_resized.png'),
       );
     });
   });

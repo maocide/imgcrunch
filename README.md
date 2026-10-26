@@ -119,7 +119,8 @@ Press `P` to deploy the floating **9x Nearest-Neighbor Pixel Peeker Loupe**:
 | `P` | Toggle **9x Forensic Pixel Loupe** inspection reticle |
 | `+` / `=` | Zoom In (+25% focal scale) |
 | `-` | Zoom Out (-25% focal scale) |
-| `R` / `0` (Zero) | Reset Zoom to **100% Actual Pixel Resolution** / Toggle Fit |
+| `R` | Open **Lanczos3 Specimen Resizer** fader console |
+| `0` (Zero) | Reset Zoom to **100% Actual Pixel Resolution** / Toggle Fit |
 | `O` / `Ctrl+O` | Launch Native File Ingestion Browser |
 | `Shift+O` | Open Directory / Playlist Folder |
 | `Alt+O` | Open Direct Path Entry Dialog |
@@ -147,6 +148,10 @@ imgcrunch --mode=vlm anomaly.webp
 # Headless Error Level Analysis (saves photo_ela.png)
 imgcrunch --ela photo.jpg
 imgcrunch --ela photo.jpg -o diff.png --scale 35
+
+# High-quality Lanczos3 image resizing (saves photo_resized.png)
+imgcrunch --resize photo.jpg -w 1920
+imgcrunch --resize photo.jpg -p 50 -o thumb.png
 
 # Convert image to terminal ASCII art (stdout or file)
 imgcrunch --ascii photo.jpg -w 120

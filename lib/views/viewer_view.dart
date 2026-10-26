@@ -51,6 +51,7 @@ class _ViewerViewState extends State<ViewerView> {
   Size? _lastViewportSize;
   bool _isDragging = false;
   bool _loadError = false;
+  bool _isResizeProcessing = false;
 
   bool _isEyedropperActive = false;
   PixelBuffer? _pixelBuffer;
@@ -859,6 +860,7 @@ class _ViewerViewState extends State<ViewerView> {
         !_loadError;
     final isProcessing =
         isNormalLoading ||
+        _isResizeProcessing ||
         (_crunchController.activeState is PipelineProcessing);
 
     final windowTitle = WindowTitleHelper.formatTitle(
@@ -899,7 +901,7 @@ class _ViewerViewState extends State<ViewerView> {
       },
       const SingleActivator(LogicalKeyboardKey.digit0): _toggleScale,
       const SingleActivator(LogicalKeyboardKey.numpad0): _toggleScale,
-      const SingleActivator(LogicalKeyboardKey.keyR): _toggleScale,
+      const SingleActivator(LogicalKeyboardKey.keyR): _showResizeDialog,
       const SingleActivator(LogicalKeyboardKey.digit1): () {
         _bumpHud();
         _crunchController.setMode(ViewMode.normal);
@@ -1247,6 +1249,30 @@ class _ViewerViewState extends State<ViewerView> {
   void _showHelpDialog() {
     _bumpHud();
     RetroDialogHelper.showHelpDialog(context);
+  }
+
+  Future<void> _showResizeDialog() async {
+    final path = widget.controller.currentPath;
+    if (path == null) return;
+    final size = _naturalSize ?? const Size(800, 600);
+
+    _bumpHud();
+    await RetroDialogHelper.showResizeDialog(
+      context,
+      imagePath: path,
+      naturalSize: size,
+      onProcessingChanged: (processing) {
+        if (mounted && _isResizeProcessing != processing) {
+          setState(() => _isResizeProcessing = processing);
+        }
+      },
+      onSaved: (newPath) {
+        widget.controller.loadPath(newPath);
+      },
+    );
+    if (mounted && _isResizeProcessing) {
+      setState(() => _isResizeProcessing = false);
+    }
   }
 }
 
