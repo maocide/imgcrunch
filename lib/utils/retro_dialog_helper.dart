@@ -161,6 +161,12 @@ class RetroDialogHelper {
                         ),
                         TableRow(
                           children: [
+                            _HelpKey('C'),
+                            _HelpDesc('Copy Full Specimen Path to Clipboard'),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
                             _HelpKey('CTRL + C'),
                             _HelpDesc(
                               'Contextual Copy (Image / ELA / ASCII / Strings)',

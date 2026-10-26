@@ -8,6 +8,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import '../controllers/crunch_state_controller.dart';
 import '../controllers/image_controller.dart';
+import '../models/operation_result.dart';
 import '../services/pixel_reader.dart';
 import '../theme/app_theme.dart';
 import '../utils/clipboard_helper.dart';
@@ -50,6 +51,10 @@ class _ViewerViewState extends State<ViewerView> {
   bool _loadError = false;
   bool _isResizeProcessing = false;
 
+  String? _transientStatusMessage;
+  bool _isTransientError = false;
+  Timer? _transientMessageTimer;
+
   bool _isEyedropperActive = false;
   PixelBuffer? _pixelBuffer;
   Point<int>? _hoveredPixel;
@@ -74,6 +79,7 @@ class _ViewerViewState extends State<ViewerView> {
 
   @override
   void dispose() {
+    _transientMessageTimer?.cancel();
     _shortcutManager.dispose();
     widget.controller.removeListener(_onImageChange);
     _transformController.removeListener(_onTransformChange);
@@ -82,6 +88,48 @@ class _ViewerViewState extends State<ViewerView> {
     _crunchController.dispose();
     _focusScopeNode.dispose();
     super.dispose();
+  }
+
+  void _setStatusMessage(
+    String message, {
+    bool isError = false,
+    Duration timeout = const Duration(seconds: 4),
+  }) {
+    _transientMessageTimer?.cancel();
+    setState(() {
+      _transientStatusMessage = message;
+      _isTransientError = isError;
+    });
+    _transientMessageTimer = Timer(timeout, () {
+      if (mounted && _transientStatusMessage != null) {
+        setState(() {
+          _transientStatusMessage = null;
+          _isTransientError = false;
+        });
+      }
+    });
+  }
+
+  void _clearTransientStatus() {
+    if (_transientStatusMessage != null) {
+      _transientMessageTimer?.cancel();
+      _transientStatusMessage = null;
+      _isTransientError = false;
+    }
+  }
+
+  void _handleResult(OperationResult result, {String? defaultSuccessMessage}) {
+    if (result.isSuccess) {
+      final msg = result.message ?? defaultSuccessMessage;
+      if (msg != null && msg.isNotEmpty) {
+        _setStatusMessage(msg, isError: false);
+      }
+    } else {
+      _setStatusMessage(
+        'ERR: ${result.error ?? "OPERATION FAILED"}',
+        isError: true,
+      );
+    }
   }
 
   void _onCrunchStateChange() {
@@ -146,6 +194,7 @@ class _ViewerViewState extends State<ViewerView> {
   }
 
   void _onImageChange() {
+    _clearTransientStatus();
     setState(() {
       _naturalSize = null;
       _loadError = false;
@@ -183,36 +232,7 @@ class _ViewerViewState extends State<ViewerView> {
     final hex = _pixelBuffer!.getHex(pixel.x, pixel.y);
     await Clipboard.setData(ClipboardData(text: hex));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: AppTheme.xCopySteelDark,
-        duration: const Duration(seconds: 2),
-        content: Row(
-          children: [
-            Container(
-              width: 14,
-              height: 14,
-              decoration: BoxDecoration(
-                color: _pixelBuffer!.getPixel(pixel.x, pixel.y),
-                border: Border.all(color: Colors.white, width: 1),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'PIXEL $hex COPIED (X:${pixel.x}, Y:${pixel.y})',
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.xCopyGreen,
-                letterSpacing: 1.0,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    _setStatusMessage('PIXEL $hex COPIED (X:${pixel.x}, Y:${pixel.y})');
   }
 
   void _onTransformChange() {
@@ -247,6 +267,7 @@ class _ViewerViewState extends State<ViewerView> {
   }
 
   void _toggleScale() {
+    _clearTransientStatus();
     final isCloseToActual = (_currentScale - 1.0).abs() < 0.05;
     _resetTransform(actualSize: !isCloseToActual);
   }
@@ -265,8 +286,22 @@ class _ViewerViewState extends State<ViewerView> {
   Future<void> _copyContent() async {
     final message = await _crunchController.copyActiveContent();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+    final isErr = message.toLowerCase().contains('no ') ||
+        message.toLowerCase().contains('error');
+    _setStatusMessage(message, isError: isErr);
+  }
+
+  Future<void> _copyCurrentPath() async {
+    final path = widget.controller.currentPath;
+    if (path == null) {
+      _handleResult(
+        const OperationResult<void>.failure('NO SPECIMEN LOADED'),
+      );
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: path));
+    _handleResult(
+      OperationResult<String>.success(path, 'PATH COPIED: $path'),
     );
   }
 
@@ -276,16 +311,13 @@ class _ViewerViewState extends State<ViewerView> {
       if (!mounted) return;
       if (images.isNotEmpty) {
         widget.controller.loadPath(images.first);
+        _setStatusMessage('CLIPBOARD SPECIMEN IMPORTED');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No image found in clipboard')),
-        );
+        _setStatusMessage('ERR: NO IMAGE IN CLIPBOARD', isError: true);
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error pasting from clipboard: $e')),
-      );
+      _setStatusMessage('ERR: CLIPBOARD IMPORT FAILED ($e)', isError: true);
     }
   }
 
@@ -330,7 +362,15 @@ class _ViewerViewState extends State<ViewerView> {
   void _showOpenPathDialog() {
     RetroDialogHelper.showOpenPathDialog(
       context,
-      onPathSubmitted: (path) => widget.controller.loadPath(path),
+      onPathSubmitted: (path) {
+        final f = File(path);
+        final d = Directory(path);
+        if (!f.existsSync() && !d.existsSync()) {
+          _setStatusMessage('ERR: PATH NOT FOUND: $path', isError: true);
+          return;
+        }
+        widget.controller.loadPath(path);
+      },
     );
   }
 
@@ -572,8 +612,10 @@ class _ViewerViewState extends State<ViewerView> {
                       _zoomAt(event.localPosition, factor);
                     } else {
                       if (event.scrollDelta.dy > 0) {
+                        _clearTransientStatus();
                         widget.controller.previous();
                       } else if (event.scrollDelta.dy < 0) {
+                        _clearTransientStatus();
                         widget.controller.next();
                       }
                     }
@@ -777,8 +819,10 @@ class _ViewerViewState extends State<ViewerView> {
                   _zoomAt(event.localPosition, factor);
                 } else {
                   if (event.scrollDelta.dy > 0) {
+                    _clearTransientStatus();
                     widget.controller.previous();
                   } else if (event.scrollDelta.dy < 0) {
+                    _clearTransientStatus();
                     widget.controller.next();
                   }
                 }
@@ -836,37 +880,75 @@ class _ViewerViewState extends State<ViewerView> {
       const SingleActivator(LogicalKeyboardKey.escape): _handleEscape,
       const SingleActivator(LogicalKeyboardKey.keyH): _showHelpDialog,
       const SingleActivator(LogicalKeyboardKey.f1): _showHelpDialog,
-      const SingleActivator(LogicalKeyboardKey.arrowLeft): c.next,
-      const SingleActivator(LogicalKeyboardKey.space): c.next,
-      const SingleActivator(LogicalKeyboardKey.arrowRight): c.previous,
-      const SingleActivator(LogicalKeyboardKey.backspace): c.previous,
-      const SingleActivator(LogicalKeyboardKey.home): c.first,
-      const SingleActivator(LogicalKeyboardKey.end): c.last,
+      const SingleActivator(LogicalKeyboardKey.arrowLeft): () {
+        _clearTransientStatus();
+        c.next();
+      },
+      const SingleActivator(LogicalKeyboardKey.space): () {
+        _clearTransientStatus();
+        c.next();
+      },
+      const SingleActivator(LogicalKeyboardKey.arrowRight): () {
+        _clearTransientStatus();
+        c.previous();
+      },
+      const SingleActivator(LogicalKeyboardKey.backspace): () {
+        _clearTransientStatus();
+        c.previous();
+      },
+      const SingleActivator(LogicalKeyboardKey.home): () {
+        _clearTransientStatus();
+        c.first();
+      },
+      const SingleActivator(LogicalKeyboardKey.end): () {
+        _clearTransientStatus();
+        c.last();
+      },
       const SingleActivator(LogicalKeyboardKey.delete):
           _confirmDeleteCurrentFile,
       const SingleActivator(LogicalKeyboardKey.digit0): _toggleScale,
       const SingleActivator(LogicalKeyboardKey.numpad0): _toggleScale,
       const SingleActivator(LogicalKeyboardKey.keyR): _showResizeDialog,
-      const SingleActivator(LogicalKeyboardKey.digit1): () =>
-          _crunchController.setMode(ViewMode.normal),
-      const SingleActivator(LogicalKeyboardKey.digit1, alt: true): () =>
-          _crunchController.setMode(ViewMode.normal),
-      const SingleActivator(LogicalKeyboardKey.digit2): () =>
-          _crunchController.setMode(ViewMode.ela),
-      const SingleActivator(LogicalKeyboardKey.digit2, alt: true): () =>
-          _crunchController.setMode(ViewMode.ela),
-      const SingleActivator(LogicalKeyboardKey.digit3): () =>
-          _crunchController.setMode(ViewMode.ascii),
-      const SingleActivator(LogicalKeyboardKey.digit3, alt: true): () =>
-          _crunchController.setMode(ViewMode.ascii),
-      const SingleActivator(LogicalKeyboardKey.digit4): () =>
-          _crunchController.setMode(ViewMode.strings),
-      const SingleActivator(LogicalKeyboardKey.digit4, alt: true): () =>
-          _crunchController.setMode(ViewMode.strings),
-      const SingleActivator(LogicalKeyboardKey.digit5): () =>
-          _crunchController.setMode(ViewMode.vlm),
-      const SingleActivator(LogicalKeyboardKey.digit5, alt: true): () =>
-          _crunchController.setMode(ViewMode.vlm),
+      const SingleActivator(LogicalKeyboardKey.digit1): () {
+        _clearTransientStatus();
+        _crunchController.setMode(ViewMode.normal);
+      },
+      const SingleActivator(LogicalKeyboardKey.digit1, alt: true): () {
+        _clearTransientStatus();
+        _crunchController.setMode(ViewMode.normal);
+      },
+      const SingleActivator(LogicalKeyboardKey.digit2): () {
+        _clearTransientStatus();
+        _crunchController.setMode(ViewMode.ela);
+      },
+      const SingleActivator(LogicalKeyboardKey.digit2, alt: true): () {
+        _clearTransientStatus();
+        _crunchController.setMode(ViewMode.ela);
+      },
+      const SingleActivator(LogicalKeyboardKey.digit3): () {
+        _clearTransientStatus();
+        _crunchController.setMode(ViewMode.ascii);
+      },
+      const SingleActivator(LogicalKeyboardKey.digit3, alt: true): () {
+        _clearTransientStatus();
+        _crunchController.setMode(ViewMode.ascii);
+      },
+      const SingleActivator(LogicalKeyboardKey.digit4): () {
+        _clearTransientStatus();
+        _crunchController.setMode(ViewMode.strings);
+      },
+      const SingleActivator(LogicalKeyboardKey.digit4, alt: true): () {
+        _clearTransientStatus();
+        _crunchController.setMode(ViewMode.strings);
+      },
+      const SingleActivator(LogicalKeyboardKey.digit5): () {
+        _clearTransientStatus();
+        _crunchController.setMode(ViewMode.vlm);
+      },
+      const SingleActivator(LogicalKeyboardKey.digit5, alt: true): () {
+        _clearTransientStatus();
+        _crunchController.setMode(ViewMode.vlm);
+      },
       const SingleActivator(LogicalKeyboardKey.keyP): _toggleEyedropper,
       const SingleActivator(LogicalKeyboardKey.keyM): _showMenu,
       const SingleActivator(LogicalKeyboardKey.keyO): _pickImageFile,
@@ -876,10 +958,19 @@ class _ViewerViewState extends State<ViewerView> {
           _pickDirectory,
       const SingleActivator(LogicalKeyboardKey.keyO, alt: true):
           _showOpenPathDialog,
-      const SingleActivator(LogicalKeyboardKey.keyS): c.cycleSortCriterion,
-      const SingleActivator(LogicalKeyboardKey.keyS, shift: true):
-          c.toggleSortDirection,
-      const SingleActivator(LogicalKeyboardKey.f5): c.refresh,
+      const SingleActivator(LogicalKeyboardKey.keyS): () {
+        _clearTransientStatus();
+        c.cycleSortCriterion();
+      },
+      const SingleActivator(LogicalKeyboardKey.keyS, shift: true): () {
+        _clearTransientStatus();
+        c.toggleSortDirection();
+      },
+      const SingleActivator(LogicalKeyboardKey.f5): () {
+        _clearTransientStatus();
+        c.refresh();
+      },
+      const SingleActivator(LogicalKeyboardKey.keyC): _copyCurrentPath,
       const SingleActivator(LogicalKeyboardKey.keyC, control: true):
           _copyContent,
       const SingleActivator(LogicalKeyboardKey.keyV, control: true):
@@ -998,31 +1089,45 @@ class _ViewerViewState extends State<ViewerView> {
                       ),
 
                       // Permanent Bottom Retro Status Bar (solid console base)
-                      RetroStatusBar(
-                        statusText: _isEyedropperActive
-                            ? 'MODE: PIXEL EYEDROPPER & LOUPE // [CLICK] COPY HEX // [P/ESC] EXIT'
-                            : _getStatusMessage(c),
-                        dimensions: _naturalSize,
-                        zoomScale: _currentScale,
-                        currentIndex: c.currentIndex,
-                        totalCount: c.playlist.length,
-                        sortLabel: c.hasImages ? c.sortCriterionLabel : null,
-                        sortDirection: c.hasImages
-                            ? c.sortDirectionArrow
-                            : null,
-                        onSortTap: () {
-                          c.cycleSortCriterion();
+                      Builder(
+                        builder: (context) {
+                          final isPipelineError =
+                              _crunchController.activeState is PipelineError;
+                          final effectiveIsError = _transientStatusMessage != null
+                              ? _isTransientError
+                              : isPipelineError;
+                          final effectiveStatusText = _transientStatusMessage ??
+                              (_isEyedropperActive
+                                  ? 'MODE: PIXEL EYEDROPPER & LOUPE // [CLICK] COPY HEX // [P/ESC] EXIT'
+                                  : _getStatusMessage(c));
+
+                          return RetroStatusBar(
+                            statusText: effectiveStatusText,
+                            isError: effectiveIsError,
+                            dimensions: _naturalSize,
+                            zoomScale: _currentScale,
+                            currentIndex: c.currentIndex,
+                            totalCount: c.playlist.length,
+                            sortLabel: c.hasImages ? c.sortCriterionLabel : null,
+                            sortDirection: c.hasImages
+                                ? c.sortDirectionArrow
+                                : null,
+                            onSortTap: () {
+                              _clearTransientStatus();
+                              c.cycleSortCriterion();
+                            },
+                            trailing: RetroButton(
+                              label: 'MENU',
+                              shortcut: 'M',
+                              fontSize: 9,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              onPressed: _showMenu,
+                            ),
+                          );
                         },
-                        trailing: RetroButton(
-                          label: 'MENU',
-                          shortcut: 'M',
-                          fontSize: 9,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          onPressed: _showMenu,
-                        ),
                       ),
                     ],
                   ),
@@ -1072,6 +1177,8 @@ class _ViewerViewState extends State<ViewerView> {
       },
       onSaved: (newPath) {
         widget.controller.loadPath(newPath);
+        final fileName = newPath.split(Platform.pathSeparator).last;
+        _setStatusMessage('SPECIMEN RESIZED: $fileName');
       },
     );
     if (mounted && _isResizeProcessing) {
@@ -1091,7 +1198,8 @@ class _ViewerViewState extends State<ViewerView> {
     );
 
     if (confirmed == true && mounted) {
-      await widget.controller.deleteCurrent();
+      final result = await widget.controller.deleteCurrent();
+      _handleResult(result);
     }
   }
 }

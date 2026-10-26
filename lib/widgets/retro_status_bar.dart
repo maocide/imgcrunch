@@ -11,11 +11,13 @@ class RetroStatusBar extends StatelessWidget {
   final String? sortLabel;
   final String? sortDirection;
   final VoidCallback? onSortTap;
+  final bool isError;
   final Widget? trailing;
 
   const RetroStatusBar({
     super.key,
     required this.statusText,
+    this.isError = false,
     this.secondaryText,
     this.dimensions,
     this.zoomScale,
@@ -61,14 +63,14 @@ class RetroStatusBar extends StatelessWidget {
 
           return Row(
             children: [
-              // Green phosphor status terminal text
-              const Text(
-                '> ',
+              // Terminal prompt indicator: green/amber '>' or red '!'
+              Text(
+                isError ? '! ' : '> ',
                 style: TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.xCopyAmber,
+                  color: isError ? AppTheme.xCopyRed : AppTheme.xCopyAmber,
                 ),
               ),
               Expanded(
@@ -76,12 +78,12 @@ class RetroStatusBar extends StatelessWidget {
                   statusText,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.1,
-                    color: AppTheme.xCopyGreen,
+                    color: isError ? AppTheme.xCopyRed : AppTheme.xCopyGreen,
                   ),
                 ),
               ),

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import '../models/operation_result.dart';
 import '../services/rust_image_service.dart';
 import 'directory_watcher_manager.dart';
 
@@ -348,10 +349,12 @@ class ImageController extends ChangeNotifier {
   }
 
   /// Deletes the currently selected file from disk and advances/clamps playlist.
-  /// Returns `true` if file was deleted successfully.
-  Future<bool> deleteCurrent() async {
+  /// Returns an [OperationResult] indicating success or containing the failure error.
+  Future<OperationResult<void>> deleteCurrent() async {
     final path = currentPath;
-    if (path == null) return false;
+    if (path == null) {
+      return const OperationResult.failure('No specimen selected');
+    }
 
     try {
       final file = File(path);
@@ -369,10 +372,12 @@ class ImageController extends ChangeNotifier {
       }
 
       notifyListeners();
-      return true;
+      return const OperationResult.success(null, 'SPECIMEN DELETED FROM DISK');
+    } on FileSystemException catch (e) {
+      final reason = e.osError?.message ?? e.message;
+      return OperationResult.failure(reason);
     } catch (e) {
-      debugPrint('Error deleting file: $e');
-      return false;
+      return OperationResult.failure('$e');
     }
   }
 

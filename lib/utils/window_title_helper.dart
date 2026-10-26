@@ -19,7 +19,7 @@ class WindowTitleHelper {
     if (!hasImages) return 'imgcrunch';
     final trackStr = totalCount > 0 ? '${currentIndex + 1}/$totalCount' : '0/0';
     final zoomStr = '${(scale * 100).toInt()}%';
-    return 'imgcrunch // TRK: $trackStr // $fileName // $zoomStr';
+    return 'imgcrunch · $fileName · [$trackStr] · $zoomStr';
   }
 
   /// Sends the formatted title to the native GTK window.

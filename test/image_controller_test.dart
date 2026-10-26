@@ -194,8 +194,9 @@ void main() {
     controller.jumpTo(1);
     expect(controller.currentPath, fileB.path);
 
-    final success = await controller.deleteCurrent();
-    expect(success, isTrue);
+    final res1 = await controller.deleteCurrent();
+    expect(res1.isSuccess, isTrue);
+    expect(res1.message, 'SPECIMEN DELETED FROM DISK');
     expect(await fileB.exists(), isFalse, reason: 'File should be deleted from disk');
     expect(controller.playlist.length, 2);
     expect(controller.playlist.contains(fileB.path), isFalse);
@@ -204,24 +205,25 @@ void main() {
     expect(controller.currentPath, fileC.path);
 
     // Now delete last file (charlie) -> index should clamp to 0 (alpha)
-    final success2 = await controller.deleteCurrent();
-    expect(success2, isTrue);
+    final res2 = await controller.deleteCurrent();
+    expect(res2.isSuccess, isTrue);
     expect(await fileC.exists(), isFalse);
     expect(controller.playlist.length, 1);
     expect(controller.currentIndex, 0);
     expect(controller.currentPath, fileA.path);
 
     // Delete final file
-    final success3 = await controller.deleteCurrent();
-    expect(success3, isTrue);
+    final res3 = await controller.deleteCurrent();
+    expect(res3.isSuccess, isTrue);
     expect(await fileA.exists(), isFalse);
     expect(controller.playlist.isEmpty, isTrue);
     expect(controller.currentIndex, 0);
     expect(controller.currentPath, isNull);
 
-    // Attempting delete on empty playlist returns false
+    // Attempting delete on empty playlist returns failure
     final failEmpty = await controller.deleteCurrent();
-    expect(failEmpty, isFalse);
+    expect(failEmpty.isFailure, isTrue);
+    expect(failEmpty.error, 'No specimen selected');
 
     controller.dispose();
   });
