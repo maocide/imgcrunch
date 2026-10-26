@@ -75,9 +75,10 @@ void main() {
 
       final Positioned positioned = tester.widget(positionedFinder);
       // Because screenPosition is (750, 550) in an (800, 600) viewport,
-      // 750 + 260 > 788 -> flips left: 750 - 260 - 22 = 468
+      // 750 + loupeWidth > 788 -> flips left: 750 - loupeWidth - 22
       // 550 + 175 > 588 -> flips top: 550 - 175 - 22 = 353
-      expect(positioned.left, equals(468.0));
+      final expectedLeft = 750 - RetroPixelLoupe.loupeWidth - RetroPixelLoupe.cursorOffset;
+      expect(positioned.left, equals(expectedLeft));
       expect(positioned.top, equals(353.0));
     });
   });

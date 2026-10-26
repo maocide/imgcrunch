@@ -29,7 +29,7 @@ class RetroPixelLoupe extends StatelessWidget {
     required this.viewportSize,
   });
 
-  static const double loupeWidth = 260.0;
+  static const double loupeWidth = 286.0;
   static const double loupeHeight = 175.0;
   static const double cursorOffset = 22.0;
 
@@ -167,6 +167,7 @@ class RetroPixelLoupe extends StatelessWidget {
                           const SizedBox(height: 3),
                           Text(
                             'RGB: $rgbText',
+                            maxLines: 1,
                             style: const TextStyle(
                               fontFamily: 'monospace',
                               fontSize: 9,

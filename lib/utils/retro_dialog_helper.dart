@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../widgets/retro_button.dart';
 import '../widgets/retro_led.dart';
@@ -78,14 +79,26 @@ class RetroDialogHelper {
                         ),
                         TableRow(
                           children: [
-                            _HelpKey('SPACE / →'),
+                            _HelpKey('← / SPACE'),
                             _HelpDesc('Next image in playlist'),
                           ],
                         ),
                         TableRow(
                           children: [
-                            _HelpKey('BACKSPACE / ←'),
+                            _HelpKey('→ / BACKSPACE'),
                             _HelpDesc('Previous image in playlist'),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
+                            _HelpKey('HOME / END'),
+                            _HelpDesc('Jump to First / Last specimen'),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
+                            _HelpKey('DEL'),
+                            _HelpDesc('Delete specimen (Confirmation Dialog)'),
                           ],
                         ),
                         TableRow(
@@ -281,6 +294,171 @@ class RetroDialogHelper {
       onSaved: onSaved,
       onProcessingChanged: onProcessingChanged,
     );
+  }
+
+  /// Shows a retro confirmation dialog for permanently deleting a specimen.
+  /// Returns `true` if deletion was confirmed, or `false`/`null` if cancelled.
+  static Future<bool?> showDeleteConfirmationDialog(
+    BuildContext context, {
+    required String fileName,
+    required String filePath,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.75),
+      builder: (ctx) => CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.escape): () {
+            Navigator.of(ctx).pop(false);
+          },
+          const SingleActivator(LogicalKeyboardKey.delete): () {
+            Navigator.of(ctx).pop(true);
+          },
+          const SingleActivator(LogicalKeyboardKey.enter): () {
+            Navigator.of(ctx).pop(true);
+          },
+          const SingleActivator(LogicalKeyboardKey.numpadEnter): () {
+            Navigator.of(ctx).pop(true);
+          },
+        },
+        child: Focus(
+          autofocus: true,
+          child: Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: RetroPanel(
+              style: RetroPanelStyle.rivetedPlate,
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const RetroLed(
+                        isActive: true,
+                        activeColor: AppTheme.xCopyRed,
+                        size: 8,
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'IMGCRUNCH // CONFIRM FILE DELETION',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.1,
+                            color: AppTheme.xCopyRed,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.close,
+                          color: ctx.wireframeCyanDim,
+                          size: 18,
+                        ),
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    height: 1,
+                    color: AppTheme.xCopyRed.withValues(alpha: 0.35),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'PERMANENTLY DELETE SPECIMEN FROM DISK?',
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.xCopyCrtBlack,
+                      border: Border.all(
+                        color: AppTheme.xCopyRed.withValues(alpha: 0.5),
+                      ),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'FILE: $fileName',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.xCopyAmber,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          filePath,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 10,
+                            color: ctx.wireframeCyanDim,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'WARNING: THIS ACTION CANNOT BE UNDONE.',
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.xCopyRed,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      RetroButton(
+                        label: 'CANCEL',
+                        shortcut: 'ESC',
+                        textColor: AppTheme.xCopyCyan,
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                      ),
+                      const SizedBox(width: 12),
+                      RetroButton(
+                        label: 'DELETE',
+                        shortcut: 'DEL',
+                        textColor: AppTheme.xCopyRed,
+                        isSelected: true,
+                        onPressed: () => Navigator.of(ctx).pop(true),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
   }
 }
 

@@ -335,6 +335,47 @@ class ImageController extends ChangeNotifier {
     }
   }
 
+  void first() {
+    if (_playlist.isEmpty) return;
+    _currentIndex = 0;
+    notifyListeners();
+  }
+
+  void last() {
+    if (_playlist.isEmpty) return;
+    _currentIndex = _playlist.length - 1;
+    notifyListeners();
+  }
+
+  /// Deletes the currently selected file from disk and advances/clamps playlist.
+  /// Returns `true` if file was deleted successfully.
+  Future<bool> deleteCurrent() async {
+    final path = currentPath;
+    if (path == null) return false;
+
+    try {
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+      }
+
+      final idx = _currentIndex;
+      _playlist.removeAt(idx);
+
+      if (_playlist.isEmpty) {
+        _currentIndex = 0;
+      } else if (_currentIndex >= _playlist.length) {
+        _currentIndex = _playlist.length - 1;
+      }
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('Error deleting file: $e');
+      return false;
+    }
+  }
+
   @override
   void dispose() {
     watcherManager.dispose();

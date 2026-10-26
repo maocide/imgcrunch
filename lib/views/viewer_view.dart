@@ -43,9 +43,6 @@ class _ViewerViewState extends State<ViewerView> {
     strMinLen: 6,
   );
 
-  Timer? _hudHideTimer;
-  bool _isHudVisible = true;
-
   double _currentScale = 1.0;
   Size? _naturalSize;
   Size? _lastViewportSize;
@@ -73,12 +70,10 @@ class _ViewerViewState extends State<ViewerView> {
     _crunchController.onImageChanged(widget.controller.currentPath);
     _crunchController.vlmController.loadConfig();
     _loadCurrentDimensions();
-    _bumpHud();
   }
 
   @override
   void dispose() {
-    _hudHideTimer?.cancel();
     _shortcutManager.dispose();
     widget.controller.removeListener(_onImageChange);
     _transformController.removeListener(_onTransformChange);
@@ -87,27 +82,6 @@ class _ViewerViewState extends State<ViewerView> {
     _crunchController.dispose();
     _focusScopeNode.dispose();
     super.dispose();
-  }
-
-  void _bumpHud() {
-    if (!_isHudVisible && mounted) {
-      if (WidgetsBinding.instance.schedulerPhase ==
-          SchedulerPhase.persistentCallbacks) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && !_isHudVisible) {
-            setState(() => _isHudVisible = true);
-          }
-        });
-      } else {
-        setState(() => _isHudVisible = true);
-      }
-    }
-    _hudHideTimer?.cancel();
-    _hudHideTimer = Timer(const Duration(milliseconds: 1200), () {
-      if (mounted && _isHudVisible) {
-        setState(() => _isHudVisible = false);
-      }
-    });
   }
 
   void _onCrunchStateChange() {
@@ -120,7 +94,6 @@ class _ViewerViewState extends State<ViewerView> {
       _hoveredScreenPos = null;
       _pixelBuffer = null;
     }
-    _bumpHud();
     if (WidgetsBinding.instance.schedulerPhase ==
         SchedulerPhase.persistentCallbacks) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -185,7 +158,6 @@ class _ViewerViewState extends State<ViewerView> {
     if (_isEyedropperActive) {
       _loadCurrentPixelBuffer();
     }
-    _bumpHud();
   }
 
   void _toggleEyedropper() {
@@ -194,7 +166,6 @@ class _ViewerViewState extends State<ViewerView> {
         _crunchController.activeMode == ViewMode.vlm) {
       return;
     }
-    _bumpHud();
     setState(() {
       _isEyedropperActive = !_isEyedropperActive;
       if (!_isEyedropperActive) {
@@ -212,7 +183,6 @@ class _ViewerViewState extends State<ViewerView> {
     final hex = _pixelBuffer!.getHex(pixel.x, pixel.y);
     await Clipboard.setData(ClipboardData(text: hex));
     if (!mounted) return;
-    _bumpHud();
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -246,7 +216,6 @@ class _ViewerViewState extends State<ViewerView> {
   }
 
   void _onTransformChange() {
-    _bumpHud();
     final scale = _transformController.value.getMaxScaleOnAxis();
     if ((scale - _currentScale).abs() > 0.005) {
       setState(() {
@@ -278,7 +247,6 @@ class _ViewerViewState extends State<ViewerView> {
   }
 
   void _toggleScale() {
-    _bumpHud();
     final isCloseToActual = (_currentScale - 1.0).abs() < 0.05;
     _resetTransform(actualSize: !isCloseToActual);
   }
@@ -364,21 +332,6 @@ class _ViewerViewState extends State<ViewerView> {
       context,
       onPathSubmitted: (path) => widget.controller.loadPath(path),
     );
-  }
-
-  Color _modeColor(ViewMode mode) {
-    switch (mode) {
-      case ViewMode.normal:
-        return AppTheme.xCopyCyan;
-      case ViewMode.ela:
-        return AppTheme.xCopyAmber;
-      case ViewMode.ascii:
-        return AppTheme.xCopyGreen;
-      case ViewMode.strings:
-        return AppTheme.xCopyAmber;
-      case ViewMode.vlm:
-        return AppTheme.xCopyGreen;
-    }
   }
 
   Widget _buildStringsCanvas() {
@@ -619,9 +572,9 @@ class _ViewerViewState extends State<ViewerView> {
                       _zoomAt(event.localPosition, factor);
                     } else {
                       if (event.scrollDelta.dy > 0) {
-                        widget.controller.next();
-                      } else if (event.scrollDelta.dy < 0) {
                         widget.controller.previous();
+                      } else if (event.scrollDelta.dy < 0) {
+                        widget.controller.next();
                       }
                     }
                   }
@@ -824,9 +777,9 @@ class _ViewerViewState extends State<ViewerView> {
                   _zoomAt(event.localPosition, factor);
                 } else {
                   if (event.scrollDelta.dy > 0) {
-                    widget.controller.next();
-                  } else if (event.scrollDelta.dy < 0) {
                     widget.controller.previous();
+                  } else if (event.scrollDelta.dy < 0) {
+                    widget.controller.next();
                   }
                 }
               }
@@ -883,65 +836,37 @@ class _ViewerViewState extends State<ViewerView> {
       const SingleActivator(LogicalKeyboardKey.escape): _handleEscape,
       const SingleActivator(LogicalKeyboardKey.keyH): _showHelpDialog,
       const SingleActivator(LogicalKeyboardKey.f1): _showHelpDialog,
-      const SingleActivator(LogicalKeyboardKey.arrowRight): () {
-        _bumpHud();
-        c.next();
-      },
-      const SingleActivator(LogicalKeyboardKey.space): () {
-        _bumpHud();
-        c.next();
-      },
-      const SingleActivator(LogicalKeyboardKey.arrowLeft): () {
-        _bumpHud();
-        c.previous();
-      },
-      const SingleActivator(LogicalKeyboardKey.backspace): () {
-        _bumpHud();
-        c.previous();
-      },
+      const SingleActivator(LogicalKeyboardKey.arrowLeft): c.next,
+      const SingleActivator(LogicalKeyboardKey.space): c.next,
+      const SingleActivator(LogicalKeyboardKey.arrowRight): c.previous,
+      const SingleActivator(LogicalKeyboardKey.backspace): c.previous,
+      const SingleActivator(LogicalKeyboardKey.home): c.first,
+      const SingleActivator(LogicalKeyboardKey.end): c.last,
+      const SingleActivator(LogicalKeyboardKey.delete):
+          _confirmDeleteCurrentFile,
       const SingleActivator(LogicalKeyboardKey.digit0): _toggleScale,
       const SingleActivator(LogicalKeyboardKey.numpad0): _toggleScale,
       const SingleActivator(LogicalKeyboardKey.keyR): _showResizeDialog,
-      const SingleActivator(LogicalKeyboardKey.digit1): () {
-        _bumpHud();
-        _crunchController.setMode(ViewMode.normal);
-      },
-      const SingleActivator(LogicalKeyboardKey.digit1, alt: true): () {
-        _bumpHud();
-        _crunchController.setMode(ViewMode.normal);
-      },
-      const SingleActivator(LogicalKeyboardKey.digit2): () {
-        _bumpHud();
-        _crunchController.setMode(ViewMode.ela);
-      },
-      const SingleActivator(LogicalKeyboardKey.digit2, alt: true): () {
-        _bumpHud();
-        _crunchController.setMode(ViewMode.ela);
-      },
-      const SingleActivator(LogicalKeyboardKey.digit3): () {
-        _bumpHud();
-        _crunchController.setMode(ViewMode.ascii);
-      },
-      const SingleActivator(LogicalKeyboardKey.digit3, alt: true): () {
-        _bumpHud();
-        _crunchController.setMode(ViewMode.ascii);
-      },
-      const SingleActivator(LogicalKeyboardKey.digit4): () {
-        _bumpHud();
-        _crunchController.setMode(ViewMode.strings);
-      },
-      const SingleActivator(LogicalKeyboardKey.digit4, alt: true): () {
-        _bumpHud();
-        _crunchController.setMode(ViewMode.strings);
-      },
-      const SingleActivator(LogicalKeyboardKey.digit5): () {
-        _bumpHud();
-        _crunchController.setMode(ViewMode.vlm);
-      },
-      const SingleActivator(LogicalKeyboardKey.digit5, alt: true): () {
-        _bumpHud();
-        _crunchController.setMode(ViewMode.vlm);
-      },
+      const SingleActivator(LogicalKeyboardKey.digit1): () =>
+          _crunchController.setMode(ViewMode.normal),
+      const SingleActivator(LogicalKeyboardKey.digit1, alt: true): () =>
+          _crunchController.setMode(ViewMode.normal),
+      const SingleActivator(LogicalKeyboardKey.digit2): () =>
+          _crunchController.setMode(ViewMode.ela),
+      const SingleActivator(LogicalKeyboardKey.digit2, alt: true): () =>
+          _crunchController.setMode(ViewMode.ela),
+      const SingleActivator(LogicalKeyboardKey.digit3): () =>
+          _crunchController.setMode(ViewMode.ascii),
+      const SingleActivator(LogicalKeyboardKey.digit3, alt: true): () =>
+          _crunchController.setMode(ViewMode.ascii),
+      const SingleActivator(LogicalKeyboardKey.digit4): () =>
+          _crunchController.setMode(ViewMode.strings),
+      const SingleActivator(LogicalKeyboardKey.digit4, alt: true): () =>
+          _crunchController.setMode(ViewMode.strings),
+      const SingleActivator(LogicalKeyboardKey.digit5): () =>
+          _crunchController.setMode(ViewMode.vlm),
+      const SingleActivator(LogicalKeyboardKey.digit5, alt: true): () =>
+          _crunchController.setMode(ViewMode.vlm),
       const SingleActivator(LogicalKeyboardKey.keyP): _toggleEyedropper,
       const SingleActivator(LogicalKeyboardKey.keyM): _showMenu,
       const SingleActivator(LogicalKeyboardKey.keyO): _pickImageFile,
@@ -951,18 +876,10 @@ class _ViewerViewState extends State<ViewerView> {
           _pickDirectory,
       const SingleActivator(LogicalKeyboardKey.keyO, alt: true):
           _showOpenPathDialog,
-      const SingleActivator(LogicalKeyboardKey.keyS): () {
-        _bumpHud();
-        c.cycleSortCriterion();
-      },
-      const SingleActivator(LogicalKeyboardKey.keyS, shift: true): () {
-        _bumpHud();
-        c.toggleSortDirection();
-      },
-      const SingleActivator(LogicalKeyboardKey.f5): () {
-        _bumpHud();
-        c.refresh();
-      },
+      const SingleActivator(LogicalKeyboardKey.keyS): c.cycleSortCriterion,
+      const SingleActivator(LogicalKeyboardKey.keyS, shift: true):
+          c.toggleSortDirection,
+      const SingleActivator(LogicalKeyboardKey.f5): c.refresh,
       const SingleActivator(LogicalKeyboardKey.keyC, control: true):
           _copyContent,
       const SingleActivator(LogicalKeyboardKey.keyV, control: true):
@@ -1048,116 +965,6 @@ class _ViewerViewState extends State<ViewerView> {
                                 ),
                               ),
 
-                            // Retro Instrument HUD Pill (with auto-fade on inactivity)
-                            if (c.hasImages)
-                              Positioned(
-                                top: 14,
-                                left: 14,
-                                child: AnimatedOpacity(
-                                  opacity: _isHudVisible ? 1.0 : 0.0,
-                                  duration: const Duration(milliseconds: 250),
-                                  child: IgnorePointer(
-                                    ignoring: !_isHudVisible,
-                                    child: RetroPanel(
-                                      style: RetroPanelStyle.cyanWireframe,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 6,
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          RetroLed(
-                                            isActive: true,
-                                            size: 7,
-                                            activeColor: _modeColor(
-                                              _crunchController.activeMode,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            _crunchController.activeMode.name
-                                                .toUpperCase(),
-                                            style: TextStyle(
-                                              fontFamily: 'monospace',
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                              letterSpacing: 1.2,
-                                              color: _modeColor(
-                                                _crunchController.activeMode,
-                                              ),
-                                            ),
-                                          ),
-
-                                          if (_isEyedropperActive) ...[
-                                            const SizedBox(width: 10),
-                                            Container(
-                                              width: 1,
-                                              height: 12,
-                                              color: context.wireframeCyanDim,
-                                            ),
-                                            const SizedBox(width: 10),
-                                            const RetroLed(
-                                              isActive: true,
-                                              size: 7,
-                                              activeColor: AppTheme.xCopyCyan,
-                                            ),
-                                            const SizedBox(width: 6),
-                                            const Text(
-                                              'PICKER',
-                                              style: TextStyle(
-                                                fontFamily: 'monospace',
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                                letterSpacing: 1.2,
-                                                color: AppTheme.xCopyCyan,
-                                              ),
-                                            ),
-                                          ],
-
-                                          if (c.playlist.isNotEmpty) ...[
-                                            const SizedBox(width: 10),
-                                            Container(
-                                              width: 1,
-                                              height: 12,
-                                              color: context.wireframeCyanDim,
-                                            ),
-                                            const SizedBox(width: 10),
-                                            Text(
-                                              'TRK: ${c.currentIndex + 1}/${c.playlist.length}',
-                                              style: const TextStyle(
-                                                fontFamily: 'monospace',
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppTheme.xCopyAmber,
-                                                letterSpacing: 1.0,
-                                              ),
-                                            ),
-                                          ],
-                                          const SizedBox(width: 10),
-                                          Container(
-                                            width: 1,
-                                            height: 12,
-                                            color: context.wireframeCyanDim,
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Text(
-                                            'Z: ${(_currentScale * 100).toInt()}%',
-                                            style: const TextStyle(
-                                              fontFamily: 'monospace',
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppTheme.xCopyAmber,
-                                              letterSpacing: 1.0,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-
                             // Pixel Eyedropper Loupe
                             if (_isEyedropperActive &&
                                 _hoveredPixel != null &&
@@ -1204,7 +1011,6 @@ class _ViewerViewState extends State<ViewerView> {
                             ? c.sortDirectionArrow
                             : null,
                         onSortTap: () {
-                          _bumpHud();
                           c.cycleSortCriterion();
                         },
                         trailing: RetroButton(
@@ -1247,7 +1053,6 @@ class _ViewerViewState extends State<ViewerView> {
   }
 
   void _showHelpDialog() {
-    _bumpHud();
     RetroDialogHelper.showHelpDialog(context);
   }
 
@@ -1256,7 +1061,6 @@ class _ViewerViewState extends State<ViewerView> {
     if (path == null) return;
     final size = _naturalSize ?? const Size(800, 600);
 
-    _bumpHud();
     await RetroDialogHelper.showResizeDialog(
       context,
       imagePath: path,
@@ -1272,6 +1076,22 @@ class _ViewerViewState extends State<ViewerView> {
     );
     if (mounted && _isResizeProcessing) {
       setState(() => _isResizeProcessing = false);
+    }
+  }
+
+  Future<void> _confirmDeleteCurrentFile() async {
+    final path = widget.controller.currentPath;
+    final name = widget.controller.currentFileName;
+    if (path == null || name == null) return;
+
+    final confirmed = await RetroDialogHelper.showDeleteConfirmationDialog(
+      context,
+      fileName: name,
+      filePath: path,
+    );
+
+    if (confirmed == true && mounted) {
+      await widget.controller.deleteCurrent();
     }
   }
 }

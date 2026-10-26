@@ -149,4 +149,80 @@ void main() {
 
     controller.dispose();
   });
+
+  test('ImageController first() and last() navigate to playlist bounds', () async {
+    final fileA = File('${tempDir.path}/alpha.png');
+    final fileB = File('${tempDir.path}/bravo.png');
+    final fileC = File('${tempDir.path}/charlie.png');
+    await fileA.writeAsBytes(List.filled(10, 0));
+    await fileB.writeAsBytes(List.filled(10, 0));
+    await fileC.writeAsBytes(List.filled(10, 0));
+
+    final controller = ImageController(enableWatcher: false);
+    await controller.loadPath(tempDir.path);
+
+    expect(controller.currentIndex, 0);
+
+    // Jump to middle, then last()
+    controller.jumpTo(1);
+    expect(controller.currentIndex, 1);
+    controller.last();
+    expect(controller.currentIndex, 2);
+    expect(controller.currentPath, fileC.path);
+
+    // first()
+    controller.first();
+    expect(controller.currentIndex, 0);
+    expect(controller.currentPath, fileA.path);
+
+    controller.dispose();
+  });
+
+  test('ImageController deleteCurrent() removes file from disk and updates playlist', () async {
+    final fileA = File('${tempDir.path}/alpha.png');
+    final fileB = File('${tempDir.path}/bravo.png');
+    final fileC = File('${tempDir.path}/charlie.png');
+    await fileA.writeAsBytes(List.filled(10, 0));
+    await fileB.writeAsBytes(List.filled(10, 0));
+    await fileC.writeAsBytes(List.filled(10, 0));
+
+    final controller = ImageController(enableWatcher: false);
+    await controller.loadPath(tempDir.path);
+    expect(controller.playlist.length, 3);
+
+    // Select middle file (bravo) and delete it
+    controller.jumpTo(1);
+    expect(controller.currentPath, fileB.path);
+
+    final success = await controller.deleteCurrent();
+    expect(success, isTrue);
+    expect(await fileB.exists(), isFalse, reason: 'File should be deleted from disk');
+    expect(controller.playlist.length, 2);
+    expect(controller.playlist.contains(fileB.path), isFalse);
+    // Index 1 now points to charlie
+    expect(controller.currentIndex, 1);
+    expect(controller.currentPath, fileC.path);
+
+    // Now delete last file (charlie) -> index should clamp to 0 (alpha)
+    final success2 = await controller.deleteCurrent();
+    expect(success2, isTrue);
+    expect(await fileC.exists(), isFalse);
+    expect(controller.playlist.length, 1);
+    expect(controller.currentIndex, 0);
+    expect(controller.currentPath, fileA.path);
+
+    // Delete final file
+    final success3 = await controller.deleteCurrent();
+    expect(success3, isTrue);
+    expect(await fileA.exists(), isFalse);
+    expect(controller.playlist.isEmpty, isTrue);
+    expect(controller.currentIndex, 0);
+    expect(controller.currentPath, isNull);
+
+    // Attempting delete on empty playlist returns false
+    final failEmpty = await controller.deleteCurrent();
+    expect(failEmpty, isFalse);
+
+    controller.dispose();
+  });
 }
