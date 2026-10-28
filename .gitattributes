@@ -1,0 +1,19 @@
+# Auto-detect text files and normalize line endings
+* text=auto
+
+# GitHub Linguist Overrides
+# Exclude auto-generated Flutter Rust Bridge bindings from language stats
+lib/src/rust/frb_generated*.dart linguist-generated=true
+rust/src/frb_generated*.rs linguist-generated=true
+
+# Exclude platform runner boilerplate from skewing language distribution
+windows/** linguist-vendored=true
+linux/** linguist-vendored=true
+macos/** linguist-vendored=true
+ios/** linguist-vendored=true
+android/** linguist-vendored=true
+web/** linguist-vendored=true
+
+# Ensure native Rust and Dart sources are prioritized
+*.rs linguist-detectable=true
+*.dart linguist-detectable=true

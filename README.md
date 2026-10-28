@@ -1,11 +1,11 @@
 # IMGCRUNCH
 
 ```text
- ___ __  __  ____ ____ ____  _   _ _   _  ____ _   _ 
-|_ _|  \/  |/ ___/ ___|  _ \| | | | \ | |/ ___| | | |
- | || |\/| | |  | |   | |_) | | | |  \| | |   | |_| |
- | || |  | | |__| |___|  _ <| |_| | |\  | |___|  _  |
-|___|_|  |_|\____\____|_| \_\\___/|_| \_|\____|_| |_|
+ ___ __  __  ____  ____ ____  _   _ _   _  ____ _   _ 
+|_ _|  \/  |/ ___|/ ___|  _ \| | | | \ | |/ ___| | | |
+ | || |\/| | |  _| |   | |_) | | | |  \| | |   | |_| |
+ | || |  | | |_| | |___|  _ <| |_| | |\  | |___|  _  |
+|___|_|  |_|\____|\____|_| \_\\___/|_| \_|\____|_| |_|
   [ CLASSIFIED IMAGE VIEWER // 1992 ORIGINAL SEIZURES ]
 ```
 
@@ -40,7 +40,7 @@ While much of modern software has devolved into bloated Electron web wrappers co
 
 **IMGCRUNCH is a combo to shmix you up.**
 
-Forged on Arch Linux, IMGCRUNCH was built to pair a raw, retro UI with blistering native performance. Low-level systems languages like Rust shine at high-throughput pixel crunching, but because of how Rust is structured, complex nested UI trees are notoriously painful to build. Bringing these two worlds together is the core philosophy of IMGCRUNCH: embedding handwritten Rust inside Flutter Desktop yields the best of both worlds — a responsive, hardware-accelerated frontend with Rust doing all the heavy computational lifting behind the scenes:
+Created and running on Linux, IMGCRUNCH was built to pair a raw, retro UI with blistering native performance. Low-level systems languages like Rust shine at high-throughput pixel crunching, but because of how Rust is structured, complex nested UI trees are notoriously painful to build. Bringing these two worlds together is the idea I had with IMGCRUNCH: embedding handwritten Rust inside Flutter Desktop yields the best of both worlds — a responsive, hardware-accelerated frontend with Rust doing all the heavy computational lifting behind the scenes:
 
 * **Native Filesystem Traversal:** Scans large directories and builds playlists asynchronously in Rust native threads, bypassing Dart GC overhead.
 * **Differential Error Level Analysis Engine:** Computes pixel-by-pixel mathematical delta matrices ($Q=25$) directly in Rust native memory.
@@ -230,6 +230,17 @@ Mode switching isn't buried in menus or dropdowns. It operates with the twitch-r
 * **Sunken CRT Markdown Terminal:** Streams real-time SSE token responses into a retro terminal featuring phosphor headers, glowing amber callouts, and steel-bordered code containers wrapped in native mouse `SelectionArea`.
 * **Dual `[MD / RAW]` Mode:** Toggle between formatted forensic dossier reports and raw token dumps with a single click.
 
+> [!IMPORTANT]
+> **Data Reality: Why Raw VLMs Fail (And Why Multimodal Telemetry Matters):**  
+> Frontier vision language models looking at raw RGB pixels alone **cannot reliably detect generative AI or image tampering**. They rely on superficial visual heuristics, frequently hallucinating false positives on authentic photographs (such as mistaking natural optical depth-of-field or weathered stone for "diffusion smoothing") while missing polished synthetic renders entirely.  
+>  
+> **IMGCRUNCH flips the equation:** Instead of asking a neural net to blindly guess, Mode 5 feeds the model objective mathematical telemetry:
+> 1. **The ELA Differential Map (`Image 2`):** Exposes mathematical DCT quantization rate mismatches and compression boundaries invisible in standard RGB space.
+> 2. **Printable Binary Strings:** Extracts embedded ComfyUI node graphs, positive/negative prompts, seed values, and model checkpoints buried in raw bytes that would take an analyst hours to manually sift.
+> 3. **Hardware Telemetry:** Anchors the prompt with exact byte lengths, modification timestamps, and decoded container chunks.  
+>  
+> This transforms the VLM from an unreliable guessing oracle into a **high-speed anomaly correlation engine** — rapidly cross-referencing buried binary strings against visual regions and outlining leads in seconds, while the human technician cross-examines the output against ground truth.
+
 <details>
 <summary>📜 Full Multimodal Forensic Dossier: DeepSeek-V4-Flash Autopsy (Click to expand)</summary>
 
@@ -314,10 +325,15 @@ Every semantic novelty in the image — the branching dark veins across the fore
 
 ## 🔬 The Surgical Pixel Peeker (`P`)
 
+<div align="center">
+  <img src="assets/pixel_peeker_demo.png" width="100%" alt="Surgical Pixel Peeker 9x Loupe inspecting synthetic blood tear">
+</div>
+
 Press `P` to deploy the floating **9x Nearest-Neighbor Pixel Peeker Loupe**:
 * **Subpixel Reticle:** Centers a calibrated high-precision crosshair over any pixel coordinate.
 * **Hardware Readout:** Displays exact `(X, Y)` spatial coordinates, 24-bit hexadecimal color code (`#RRGGBB`), and raw 8-bit `RGB(r, g, b)` channel values in real time.
-* **Subpixel Grid Canvas:** Renders a magnified pixel grid with hairline wireframe borders for inspecting compression edge discontinuities and steganographic color shifts.
+* **Subpixel Grid Canvas:** Renders a magnified 9x9 pixel grid with hairline wireframe borders for inspecting compression edge discontinuities, high-frequency boundary shifts, and steganographic color modifications.
+* **One-Click Hex Exfiltration:** Single-click or press Enter to copy the active `#RRGGBB` hex string directly to the clipboard buffer.
 
 ---
 
@@ -403,14 +419,11 @@ imgcrunch --version
 
 ---
 
-## 🛠️ Native Linux Installation & Compilation
+## 🛠️ Native Linux & Portable Windows Compilation
 
-### Prerequisites
-* **Linux:** x86_64 or aarch64 (Arch Linux, Debian/Ubuntu, Fedora)
+### Linux Prerequisites & Clean Installation
+* **Supported OS:** Linux x86_64 or aarch64 (Arch Linux, Debian/Ubuntu, Fedora)
 * **Build Toolchain:** Flutter 3.24+, Rust 1.80+ (`cargo`), `clang`, `cmake`, `pkg-config`, `libgtk-3-dev`
-
-### Clean Installation Pipeline
-Clone the repository and run the native desktop installer:
 
 ```bash
 git clone https://github.com/maocide/imgcrunch.git
@@ -420,7 +433,7 @@ cd imgcrunch
 ./install.sh --clean
 ```
 
-### Installation Options
+#### Installer Flags
 ```text
 Usage: ./install.sh [OPTIONS]
 
@@ -431,6 +444,10 @@ Options:
   --uninstall      Cleanly remove binary, desktop entries, and hicolor icons
   -h, --help       Show installer help
 ```
+
+### 🪟 Cross-Platform Portability Note
+* **Primary Target:** Developed, benchmarked, and tuned exclusively on Linux.
+* **Portable Foundation:** Built entirely on Flutter Desktop and pure Rust (`flutter_rust_bridge` v2) with zero Linux-specific desktop hacks. The core engine and UI are architecturally portable to Windows (`flutter build windows --release`), subject to platform-specific directory-watcher adjustments (`ReadDirectoryChangesW`) and user config storage paths.
 
 ---
 
@@ -452,5 +469,5 @@ Options:
 ---
 
 <div align="center">
-  <sub>Forged in the laboratory of <b>maocide</b> // <i>"You can't kill what's already dead."</i></sub>
+  <sub>Forged in <b>maocide</b>'s Lab // <i>"You can't kill what's already dead."</i></sub>
 </div>
