@@ -132,7 +132,7 @@ class VlmClient {
       String? filename;
       int? fileSize;
       DateTime? lastModified;
-      bool isClipboard = false;
+      bool isAttachment = false;
 
       try {
         final file = File(imagePath);
@@ -141,16 +141,25 @@ class VlmClient {
           if (segments.isNotEmpty) {
             filename = segments.lastWhere(
               (s) => s.isNotEmpty,
-              orElse: () => 'unknown',
+              orElse: () => 'attachment',
             );
           }
-          isClipboard = filename?.startsWith('imgcrunch_clipboard_') ?? false;
+          isAttachment = filename == null ||
+              filename == 'attachment' ||
+              filename == 'unknown' ||
+              filename.startsWith('imgcrunch_clipboard_') ||
+              filename.startsWith('imgcrunch_attachment_');
           final stat = await file.stat();
           fileSize = stat.size;
           lastModified = stat.modified;
+        } else {
+          isAttachment = true;
+          filename = 'attachment';
         }
       } catch (_) {
         // Gracefully ignore stat errors
+        isAttachment = true;
+        filename = 'attachment';
       }
 
       final nowUtc = DateTime.now().toUtc();
@@ -161,46 +170,46 @@ class VlmClient {
       final groundingBuffer = StringBuffer();
       groundingBuffer.writeln('GROUND TRUTH ENVIRONMENT & METADATA:');
       groundingBuffer.writeln('- Current Analysis Timestamp: $nowUtcStr');
-      if (filename != null) {
-        if (isClipboard) {
+      if (isAttachment) {
+        groundingBuffer.writeln('- Target Asset: attachment');
+        groundingBuffer.writeln('- Source: Provided specimen buffer');
+        if (fileSize != null) {
           groundingBuffer.writeln(
-            '- Source: Pasted image from system clipboard',
+            '- Buffer Size: ${_formatBytes(fileSize)} ($fileSize bytes)',
           );
-          if (fileSize != null) {
-            groundingBuffer.writeln(
-              '- Buffer Size: ${_formatBytes(fileSize)} ($fileSize bytes)',
-            );
-          }
-        } else {
-          groundingBuffer.writeln('- Target Filename: $filename');
-          if (fileSize != null) {
-            groundingBuffer.writeln(
-              '- File Size: ${_formatBytes(fileSize)} ($fileSize bytes)',
-            );
-          }
-          if (lastModified != null) {
-            final modUtc = lastModified.toUtc();
-            final modUtcStr =
-                '${modUtc.year.toString().padLeft(4, '0')}-${modUtc.month.toString().padLeft(2, '0')}-${modUtc.day.toString().padLeft(2, '0')} '
-                '${modUtc.hour.toString().padLeft(2, '0')}:${modUtc.minute.toString().padLeft(2, '0')}:${modUtc.second.toString().padLeft(2, '0')} UTC';
-            groundingBuffer.writeln('- Filesystem Modified: $modUtcStr');
-          }
+        }
+      } else {
+        groundingBuffer.writeln('- Target Filename: $filename');
+        if (fileSize != null) {
+          groundingBuffer.writeln(
+            '- File Size: ${_formatBytes(fileSize)} ($fileSize bytes)',
+          );
+        }
+        if (lastModified != null) {
+          final modUtc = lastModified.toUtc();
+          final modUtcStr =
+              '${modUtc.year.toString().padLeft(4, '0')}-${modUtc.month.toString().padLeft(2, '0')}-${modUtc.day.toString().padLeft(2, '0')} '
+              '${modUtc.hour.toString().padLeft(2, '0')}:${modUtc.minute.toString().padLeft(2, '0')}:${modUtc.second.toString().padLeft(2, '0')} UTC';
+          groundingBuffer.writeln('- Filesystem Modified: $modUtcStr');
         }
       }
+      groundingBuffer.writeln(
+        '- Context: Specimen material provided directly for technical forensic analysis.',
+      );
 
       if (elaBytes != null ||
           (extractedStrings != null && extractedStrings.trim().isNotEmpty)) {
         final buffer = StringBuffer();
         buffer.write(groundingBuffer.toString());
         buffer.writeln('\nFORENSIC MULTIMODAL TELEMETRY:');
-        buffer.writeln('- Image 1: Original input image (RGB visual capture).');
+        buffer.writeln('- Image 1: Primary input specimen (RGB visual capture).');
         if (elaBytes != null) {
           buffer.writeln(
-            '- Image 2: Error Level Analysis (ELA) difference map (compression scale factor: ${elaScale ?? 25}). High contrast/brightness denotes high compression error/potential splicing.',
+            '- Image 2: Error Level Analysis (ELA) difference map generated directly from Image 1 (compression scale factor: ${elaScale ?? 25}). High contrast/brightness denotes high compression error/potential splicing.',
           );
         }
         if (extractedStrings != null && extractedStrings.trim().isNotEmpty) {
-          buffer.writeln('- Extracted Binary Strings (printable ASCII):');
+          buffer.writeln('- Extracted Binary Strings (printable ASCII from Image 1):');
           buffer.writeln('```');
           buffer.writeln(extractedStrings.trim());
           buffer.writeln('```');
