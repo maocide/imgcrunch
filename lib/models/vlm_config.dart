@@ -19,7 +19,7 @@ class VlmConfig {
   });
 
   static const String defaultEndpoint = 'http://localhost:11434/v1';
-  static const String defaultModel = 'qwen2.5-vl';
+  static const String defaultModel = 'qwen3.5';
   static const int maxMruHistory = 5;
 
   /// Base API URL for OpenAI-compatible completions (Ollama, vLLM, OpenRouter, etc.).

@@ -12,7 +12,7 @@ class CliRunner {
         _printHelp();
         return;
       case CliAction.version:
-        stdout.writeln('imgcrunch v1.0.0 (X-Copy Pro Engine)');
+        stdout.writeln('imgcrunch v1.0.0');
         return;
       case CliAction.ela:
         await _handleEla(args);
@@ -208,4 +208,3 @@ EXAMPLES:
     );
   }
 }
-

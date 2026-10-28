@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../models/operation_result.dart';
+import '../services/config/app_config_manager.dart';
 import '../services/rust_image_service.dart';
 import 'directory_watcher_manager.dart';
 
@@ -29,10 +30,16 @@ class ImageController extends ChangeNotifier {
   PlaylistSortDirection _sortDirection = PlaylistSortDirection.ascending;
 
   late final DirectoryWatcherManager watcherManager;
+  final AppConfigManager? _configManager;
 
   ImageController({
     bool enableWatcher = true,
-  }) {
+    AppConfigManager? configManager,
+  }) : _configManager = configManager {
+    if (configManager != null) {
+      _sortCriterion = configManager.config.sortCriterion;
+      _sortDirection = configManager.config.sortDirection;
+    }
     watcherManager = DirectoryWatcherManager(
       onRefreshRequested: refresh,
     );
@@ -242,6 +249,7 @@ class ImageController extends ChangeNotifier {
       case PlaylistSortCriterion.size:
         _sortCriterion = PlaylistSortCriterion.name;
     }
+    _configManager?.updateSort(criterion: _sortCriterion);
     refresh();
   }
 
@@ -249,6 +257,7 @@ class ImageController extends ChangeNotifier {
     _sortDirection = _sortDirection == PlaylistSortDirection.ascending
         ? PlaylistSortDirection.descending
         : PlaylistSortDirection.ascending;
+    _configManager?.updateSort(direction: _sortDirection);
     refresh();
   }
 
@@ -266,6 +275,10 @@ class ImageController extends ChangeNotifier {
       changed = true;
     }
     if (changed) {
+      _configManager?.updateSort(
+        criterion: _sortCriterion,
+        direction: _sortDirection,
+      );
       refresh();
     }
   }

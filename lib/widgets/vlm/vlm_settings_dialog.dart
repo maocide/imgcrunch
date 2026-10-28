@@ -159,7 +159,7 @@ class _VlmSettingsDialogState extends State<VlmSettingsDialog> {
               const SizedBox(height: 6),
               _buildTextField(
                 controller: _modelCtrl,
-                hintText: 'e.g. qwen2.5-vl, minicpm-v, llava, gpt-4o-mini',
+                hintText: 'e.g. qwen3.5, qwen2.5-vl, minicpm-v, llava, gpt-4o-mini',
               ),
               const SizedBox(height: 14),
 

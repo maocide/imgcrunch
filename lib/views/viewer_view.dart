@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import '../controllers/crunch_state_controller.dart';
 import '../controllers/image_controller.dart';
 import '../models/operation_result.dart';
+import '../services/config/app_config_manager.dart';
 import '../services/pixel_reader.dart';
 import '../theme/app_theme.dart';
 import '../utils/clipboard_helper.dart';
@@ -29,8 +30,14 @@ import 'vlm_view.dart';
 class ViewerView extends StatefulWidget {
   final ImageController controller;
   final ViewMode? initialMode;
+  final AppConfigManager? configManager;
 
-  const ViewerView({super.key, required this.controller, this.initialMode});
+  const ViewerView({
+    super.key,
+    required this.controller,
+    this.initialMode,
+    this.configManager,
+  });
 
   @override
   State<ViewerView> createState() => _ViewerViewState();
@@ -42,6 +49,7 @@ class _ViewerViewState extends State<ViewerView> {
   final FocusScopeNode _focusScopeNode = FocusScopeNode();
   late final CrunchStateController _crunchController = CrunchStateController(
     strMinLen: 6,
+    configManager: widget.configManager,
   );
 
   double _currentScale = 1.0;

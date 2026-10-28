@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import '../models/app_config.dart';
 import '../models/vlm_config.dart';
 import '../models/vlm_prompt_preset.dart';
+import '../services/config/app_config_manager.dart';
 import '../services/rust_image_service.dart';
 import '../services/storage/config_storage.dart';
-import '../services/storage/file_config_storage.dart';
 import '../services/vlm/vlm_client.dart';
 import 'crunch_state_controller.dart';
 
@@ -12,18 +13,24 @@ import 'crunch_state_controller.dart';
 /// persistence, prompt presets, 5-item MRU history, and streaming execution.
 class VlmController extends ChangeNotifier {
   VlmController({
+    AppConfigManager? configManager,
     IConfigStorage? configStorage,
     VlmClient? vlmClient,
     RustImageService? rustService,
-  }) : _configStorage = configStorage ?? FileConfigStorage(),
+    VlmConfig? initialConfig,
+  }) : _configManager = configManager ??
+           (configStorage != null
+               ? AppConfigManager(storage: configStorage)
+               : null),
        _vlmClient = vlmClient ?? VlmClient(),
-       _rustService = rustService ?? RustImageService.instance;
+       _rustService = rustService ?? RustImageService.instance,
+       _config = initialConfig ?? configManager?.config.vlm ?? const VlmConfig();
 
-  final IConfigStorage _configStorage;
+  final AppConfigManager? _configManager;
   final VlmClient _vlmClient;
   final RustImageService _rustService;
 
-  static const String configFileName = 'vlm_config.json';
+  static const String configFileName = AppConfig.configFileName;
 
   VlmConfig _config = const VlmConfig();
   VlmConfig get config => _config;
@@ -64,15 +71,15 @@ class VlmController extends ChangeNotifier {
   /// Broadcast stream emitting cognitive reasoning chunks (<think>, reasoning_content, delta['reasoning']).
   Stream<String> get reasoningStream => _reasoningStreamCtrl.stream;
 
-  /// Loads configuration from [IConfigStorage].
+  /// Loads configuration from [AppConfigManager].
   Future<void> loadConfig() async {
     _isLoadingConfig = true;
     notifyListeners();
 
     try {
-      final jsonStr = await _configStorage.readConfig(configFileName);
-      if (jsonStr != null && jsonStr.trim().isNotEmpty) {
-        _config = VlmConfig.fromJsonString(jsonStr);
+      if (_configManager != null) {
+        await _configManager.reload();
+        _config = _configManager.config.vlm;
       }
     } catch (e) {
       debugPrint('VlmController: Error loading config: $e');
@@ -121,7 +128,7 @@ class VlmController extends ChangeNotifier {
 
   Future<void> _saveConfig() async {
     try {
-      await _configStorage.writeConfig(configFileName, _config.toJsonString());
+      await _configManager?.updateVlm(_config);
     } catch (e) {
       debugPrint('VlmController: Error saving config: $e');
     }

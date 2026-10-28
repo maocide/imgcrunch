@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import '../services/config/app_config_manager.dart';
 import '../services/rust_image_service.dart';
 import '../utils/clipboard_helper.dart';
 import 'vlm_controller.dart';
@@ -36,12 +37,14 @@ class CrunchStateController extends ChangeNotifier {
   CrunchStateController({
     RustImageService? rustService,
     VlmController? vlmController,
+    AppConfigManager? configManager,
     this.strMinLen = 6,
     this.asciiTargetWidth = 120,
     this.asciiCharAspect = 0.7,
     this.elaScale = 25,
   }) : _rustService = rustService ?? RustImageService.instance,
-       _vlmController = vlmController ?? VlmController() {
+       _vlmController =
+           vlmController ?? VlmController(configManager: configManager) {
     _lastVlmState = _vlmController.state;
     _vlmController.addListener(_onVlmStateChanged);
   }

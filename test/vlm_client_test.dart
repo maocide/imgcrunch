@@ -226,6 +226,51 @@ void main() {
       }
     });
 
+    test('treats clipboard temp files as neutral specimen attachments without biased wording', () async {
+      Map<String, dynamic>? capturedPayload;
+      final mockClient = MockStreamHttpClient((request) async {
+        if (request is http.Request) {
+          capturedPayload = jsonDecode(request.body) as Map<String, dynamic>;
+        }
+        final sse = 'data: {"choices":[{"delta":{"content":"Inspection complete"}}]}\n\ndata: [DONE]\n\n';
+        return http.StreamedResponse(
+          Stream.value(utf8.encode(sse)),
+          200,
+          headers: {'content-type': 'text/event-stream'},
+        );
+      });
+
+      final tempDir = await Directory.systemTemp.createTemp('vlm_clip_test_');
+      final clipFile = File('${tempDir.path}/imgcrunch_clipboard_1730000000000.png');
+      await clipFile.writeAsBytes([0x89, 0x50, 0x4E, 0x47]);
+
+      try {
+        final client = VlmClient(httpClient: mockClient);
+        const config = VlmConfig();
+
+        final tokens = await client.streamCaption(
+          imagePath: clipFile.path,
+          prompt: 'Inspect',
+          config: config,
+        ).toList();
+
+        expect(tokens, equals(['Inspection complete']));
+        expect(capturedPayload, isNotNull);
+
+        final messages = capturedPayload!['messages'] as List;
+        final userMsg = messages.firstWhere((m) => m['role'] == 'user') as Map<String, dynamic>;
+        final contentList = userMsg['content'] as List;
+        final textBlock = contentList[0]['text'] as String;
+
+        expect(textBlock, contains('Target Asset: attachment'));
+        expect(textBlock, contains('Source: Provided specimen buffer'));
+        expect(textBlock, contains('Context: Specimen material provided directly for technical forensic analysis.'));
+        expect(textBlock, isNot(contains('Pasted image from system clipboard')));
+      } finally {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
     test('throws VlmApiException on HTTP error', () async {
       final mockClient = MockStreamHttpClient((request) async {
         const errorJson = '{"error": {"message": "Invalid API key"}}';

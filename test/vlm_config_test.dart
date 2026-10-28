@@ -54,7 +54,7 @@ void main() {
       const config = VlmConfig();
       expect(config.endpoint, equals('http://localhost:11434/v1'));
       expect(config.apiKey, isEmpty);
-      expect(config.model, equals('qwen2.5-vl'));
+      expect(config.model, equals('qwen3.5'));
       expect(config.activePreset, equals(VlmPromptPreset.description));
       expect(config.customPrompt, isEmpty);
       expect(config.promptHistory, isEmpty);
