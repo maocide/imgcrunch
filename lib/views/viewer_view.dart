@@ -294,7 +294,8 @@ class _ViewerViewState extends State<ViewerView> {
   Future<void> _copyContent() async {
     final message = await _crunchController.copyActiveContent();
     if (!mounted) return;
-    final isErr = message.toLowerCase().contains('no ') ||
+    final isErr =
+        message.toLowerCase().contains('no ') ||
         message.toLowerCase().contains('error');
     _setStatusMessage(message, isError: isErr);
   }
@@ -302,15 +303,11 @@ class _ViewerViewState extends State<ViewerView> {
   Future<void> _copyCurrentPath() async {
     final path = widget.controller.currentPath;
     if (path == null) {
-      _handleResult(
-        const OperationResult<void>.failure('NO SPECIMEN LOADED'),
-      );
+      _handleResult(const OperationResult<void>.failure('NO SPECIMEN LOADED'));
       return;
     }
     await Clipboard.setData(ClipboardData(text: path));
-    _handleResult(
-      OperationResult<String>.success(path, 'PATH COPIED: $path'),
-    );
+    _handleResult(OperationResult<String>.success(path, 'PATH COPIED: $path'));
   }
 
   Future<void> _pasteImageFromClipboard() async {
@@ -921,15 +918,7 @@ class _ViewerViewState extends State<ViewerView> {
         _clearTransientStatus();
         _crunchController.setMode(ViewMode.normal);
       },
-      const SingleActivator(LogicalKeyboardKey.digit1, alt: true): () {
-        _clearTransientStatus();
-        _crunchController.setMode(ViewMode.normal);
-      },
       const SingleActivator(LogicalKeyboardKey.digit2): () {
-        _clearTransientStatus();
-        _crunchController.setMode(ViewMode.ela);
-      },
-      const SingleActivator(LogicalKeyboardKey.digit2, alt: true): () {
         _clearTransientStatus();
         _crunchController.setMode(ViewMode.ela);
       },
@@ -937,23 +926,11 @@ class _ViewerViewState extends State<ViewerView> {
         _clearTransientStatus();
         _crunchController.setMode(ViewMode.ascii);
       },
-      const SingleActivator(LogicalKeyboardKey.digit3, alt: true): () {
-        _clearTransientStatus();
-        _crunchController.setMode(ViewMode.ascii);
-      },
       const SingleActivator(LogicalKeyboardKey.digit4): () {
         _clearTransientStatus();
         _crunchController.setMode(ViewMode.strings);
       },
-      const SingleActivator(LogicalKeyboardKey.digit4, alt: true): () {
-        _clearTransientStatus();
-        _crunchController.setMode(ViewMode.strings);
-      },
       const SingleActivator(LogicalKeyboardKey.digit5): () {
-        _clearTransientStatus();
-        _crunchController.setMode(ViewMode.vlm);
-      },
-      const SingleActivator(LogicalKeyboardKey.digit5, alt: true): () {
         _clearTransientStatus();
         _crunchController.setMode(ViewMode.vlm);
       },
@@ -1101,10 +1078,12 @@ class _ViewerViewState extends State<ViewerView> {
                         builder: (context) {
                           final isPipelineError =
                               _crunchController.activeState is PipelineError;
-                          final effectiveIsError = _transientStatusMessage != null
+                          final effectiveIsError =
+                              _transientStatusMessage != null
                               ? _isTransientError
                               : isPipelineError;
-                          final effectiveStatusText = _transientStatusMessage ??
+                          final effectiveStatusText =
+                              _transientStatusMessage ??
                               (_isEyedropperActive
                                   ? 'MODE: PIXEL EYEDROPPER & LOUPE // [CLICK] COPY HEX // [P/ESC] EXIT'
                                   : _getStatusMessage(c));
@@ -1116,7 +1095,9 @@ class _ViewerViewState extends State<ViewerView> {
                             zoomScale: _currentScale,
                             currentIndex: c.currentIndex,
                             totalCount: c.playlist.length,
-                            sortLabel: c.hasImages ? c.sortCriterionLabel : null,
+                            sortLabel: c.hasImages
+                                ? c.sortCriterionLabel
+                                : null,
                             sortDirection: c.hasImages
                                 ? c.sortDirectionArrow
                                 : null,
